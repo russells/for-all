@@ -1,0 +1,169 @@
+=head1 NAME
+
+for-all - Run a command on a list of hosts.
+
+=head1 SYNOPSIS
+
+B<for-all> [options] hostname... -- command
+
+=head1 DESCRIPTION
+
+B<for-all> runs a command on a list of hosts.  The hosts can be listed on
+the command line, or they can be read from one or more files, or both.
+
+The command is run using ssh.
+
+A summary of results will be printed after each host (this can be
+suppressed.) The output of the command can be printed on one line after
+each host name - this is useful for table-like output of simple commands.
+
+=head1 OPTIONS
+
+=over
+
+=item -h|--help
+
+Print a help message then exit.
+
+=item -V|--version
+
+Print the version then exit.
+
+=item -1|--single
+
+For each host, print the host name, then the output from the remote command
+on the same line.  We assume the output is a single line - no attempt is
+made to enforce this.
+
+=item -F|--files
+
+Print the names of the host list files, and if specified, the files
+specified by C<-N>.  Do not run any commands, and do not check that a
+command is specified.
+
+=item -H hostlistfile | --hostlist hostlistfile
+
+Run on the hosts specified in F<hostlistfile>.
+
+=item -L | --list-only
+
+List the hosts that we would run the command on (after removing the hosts
+from the C<-n> and C<-N> options), but do not run any commands.  The C<-->
+option and the command are not required in this case.
+
+=item -n host | --not host
+
+Do not run on C<host>. This is useful when hostnames are read from a
+hostlistfile, and we want to exclude one or some of them.
+
+=item -N hostlistfile | --not-list hostlistfile
+
+Do not run on hosts specified in F<hostlistfile>.
+
+=item -o option | --ssh-option option
+
+Add C<option> as C<-o option> to the ssh command line.
+
+=item -q|--quiet
+
+Do not print the host summary after each host.
+
+=item -r
+
+Do the list in reverse order.
+
+=item -s prog | --ssh-program prog
+
+Use C<prog> instead of ssh. (experimental)
+
+=item -S|--sort
+
+Sort the host names alphabetically before running the command on each.
+
+=item -T
+
+Don't allocate a tty in the ssh command.  Normally we add the C<-t> option
+to ssh.  With the C<-T> option here, we do not.
+
+=item -u name | --user name
+
+Run on each host as C<name>.
+
+=item --
+
+The C<--> argument is required, to separate the B<for-all> options from the
+command and its options.
+
+=item command ...
+
+The command and arguments to run on each host.
+
+=back
+
+=head1 INFO
+
+Host lists are in F<./>, F<~/etc/for-all/>, and
+F</usr/local/etc/for-all>. Host list defaults to F<./all>, then
+F<~/etc/for-all/all>, then F</usr/local/etc/for-all/all>.  It is an error if
+no other list is specified and none of those exist.
+
+If a list C<L> is specified as an argument to C<-W> or C<-N>, it is
+searched for as F<./L>, then F<~/etc/for-all/L>, then
+F</usr/local/etc/for-all/L>. It is an error if none of these exist.
+
+C<-- command> must be supplied.
+
+Hosts can be specified as:
+   inside a host list file specified with C<-W>
+   non-option arguments before the C<--> separator
+
+Uses ssh, so if you have passwordless ssh logins for the right user, no
+typing of passwords will be required.
+
+B<BEWARE OF SHELL QUOTING IN YOUR COMMANDS.>
+
+=head1 HOST LIST FILE
+
+Hosts are listed in simple files, one per line.  Blank lines are
+ignored. Only the first word on each line is used. Line starting with C<#>
+are ignored.
+
+A line starting with C<+> specifies another file to read recursively. No
+check is done for file loops.
+
+=head1 EXAMPLES
+
+Run the hostname command on every workstation in your 'all' list:
+
+    for-all -- hostname
+
+Install the foo package on two workstations:
+
+    for-all -u root ws1 ws2 -- yum install -y foo
+
+Reboot all workstations in the office.  C<office> is a file containing a
+list of workstations:
+
+    for-all -u root -W office -- shutdown -r now
+
+Remove apackage from all except the important workstations.  F<all> and
+F<important> are files containing lists of workstations.
+
+    for-all -u root -N important -- yum erase -y apackage
+
+Look for all foo-client* packages on the remote-office workstations: The \|
+makes the pipe and grep run on the remote office workstation, not locally:
+
+    for-all -u root -W remote-office -- rpm -qa \| grep foo-client
+
+List the mozilla files and directories in /tmp: The \* makes the wildcard
+expand on the remote workstation, not locally:
+
+    for-all -u root -- ls -ld /tmp/mozilla\*
+
+=head1 AUTHOR
+
+Russell Steicke <russells@adelie.cx>
+
+L<https://github.com/russells/for-all>
+
