@@ -5,8 +5,14 @@ PROG = for-all
 # VersionNumber := $(shell grep ^VersionNumber $(PROG) | sed 's/.*=//')
 # VersionDate   := $(shell grep ^VersionDate   $(PROG) | sed 's/.*=//')
 
+CFLAGS += -Wall -Werror
+
 .PHONY: all
-all: man pdf
+all: prog man pdf
+
+.PHONY: prog
+prog: $(PROG)
+$(PROG): $(PROG).c
 
 # .PHONY: install
 # install: man
@@ -26,4 +32,4 @@ $(PROG).pdf: $(PROG).1
 
 .PHONY: clean
 clean:
-	rm -f $(PROG).1 $(PROG).pdf
+	rm -f $(PROG) $(PROG).1 $(PROG).pdf
