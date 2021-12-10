@@ -5,14 +5,16 @@ PROG = for-all
 # VersionNumber := $(shell grep ^VersionNumber $(PROG) | sed 's/.*=//')
 # VersionDate   := $(shell grep ^VersionDate   $(PROG) | sed 's/.*=//')
 
-CFLAGS += -Wall -Werror
+CFLAGS += -Wall -Werror $(shell pkg-config --cflags glib-2.0)
+LDFLAGS += $(shell pkg-config --libs glib-2.0)
 
 .PHONY: all
-all: prog man pdf
+all: $(PROG) man pdf
 
-.PHONY: prog
-prog: $(PROG)
-$(PROG): $(PROG).c
+$(PROG): $(PROG).o
+	$(CC) $(PROG).o -o $(PROG) $(LDFLAGS)
+
+$(PROG).o: $(PROG).c
 
 # .PHONY: install
 # install: man
@@ -32,4 +34,4 @@ $(PROG).pdf: $(PROG).1
 
 .PHONY: clean
 clean:
-	rm -f $(PROG) $(PROG).1 $(PROG).pdf
+	rm -f $(PROG) $(PROG).o $(PROG).1 $(PROG).pdf
