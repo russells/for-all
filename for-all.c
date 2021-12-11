@@ -118,6 +118,16 @@ int main(int argc, char **argv)
 		n_args++;
 	}
 	printf("command: %s\n", opt_command->str);
+	for (int i=0; i<opt_hosts->len; i++) {
+		printf("%s", opt_ssh_program->str);
+		for (int i=0; i<opt_ssh_options->len; i++) {
+			printf(" %s",
+			       ((GString*) g_ptr_array_index(opt_ssh_options, i))->str);
+		}
+		printf(" %s -- %s\n",
+		       ((GString*) g_ptr_array_index(opt_hosts, i))->str,
+		       opt_command->str);
+	}
 	if (! n_args) {
 		usage(0, 1);
 	}
@@ -130,7 +140,12 @@ static void setup(void)
 	opt_host_lists = g_ptr_array_new();
 	opt_not = g_ptr_array_new();
 	opt_not_lists = g_ptr_array_new();
+	opt_ssh_program = g_string_new("ssh");
+
+	GString *gs = g_string_new("-q");
 	opt_ssh_options = g_ptr_array_new();
+	g_ptr_array_add(opt_ssh_options, gs);
+
 	opt_command = g_string_new(0);
 }
 
