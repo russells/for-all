@@ -19,6 +19,7 @@ static void usage(int longusage, int ret);
 
 static int         opt_files = 0;	   /* -F, --files */
 static int         opt_list_only = 0;	   /* -L, --list-only */
+static GPtrArray * opt_hosts;		   /* non-option arguments */
 static GPtrArray * opt_host_lists;	   /* -H, --host-list */
 static GPtrArray * opt_not;		   /* -n, --not */
 static GPtrArray * opt_not_lists;	   /* -N, --not-list */
@@ -28,9 +29,9 @@ static int         opt_reverse = 0;	   /* -r, --reverse */
 static int         opt_sort = 0;	   /* -s, --sort */
 static GPtrArray * opt_ssh_options = 0;	   /* -o, --ssh-option */
 static GString *   opt_ssh_program = 0;	   /* -S, --ssh-program */
-static int         opt_no_tty = 0;	   /* -T, --sort */
+static int         opt_no_tty = 0;	   /* -T, --no-tty */
 static GString *   opt_user = 0;	   /* -u, --user */
-
+static GString *   opt_command = 0;	   /* Remote command */
 
 int main(int argc, char **argv)
 {
@@ -47,6 +48,13 @@ int main(int argc, char **argv)
 	}
 	if (opt_files) {
 		printf("opt_files\n");
+		n_args++;
+	}
+	if (opt_hosts->len) {
+		for (int j=0; j<opt_hosts->len; j++) {
+			printf("host: %s\n",
+			       ((GString *)g_ptr_array_index(opt_hosts, j))->str);
+		}
 		n_args++;
 	}
 	if (opt_host_lists->len) {
@@ -109,6 +117,7 @@ int main(int argc, char **argv)
 		printf("opt_user: %s\n", opt_user->str);
 		n_args++;
 	}
+	printf("command: %s\n", opt_command->str);
 	if (! n_args) {
 		usage(0, 1);
 	}
@@ -117,10 +126,12 @@ int main(int argc, char **argv)
 
 static void setup(void)
 {
+	opt_hosts = g_ptr_array_new();
 	opt_host_lists = g_ptr_array_new();
 	opt_not = g_ptr_array_new();
 	opt_not_lists = g_ptr_array_new();
 	opt_ssh_options = g_ptr_array_new();
+	opt_command = g_string_new(0);
 }
 
 
@@ -179,7 +190,7 @@ static void usage(int longusage, int ret)
 }
 
 
-static const char* const short_options = "1FhH:LqsS:u:n:N:rTo:V";
+static const char* const short_options = "-1FhH:LqsS:u:n:N:rTo:V";
 static const struct option long_options[] = {
 	{ "files"       ,       no_argument,       &opt_files, 'F' },
 	{ "help"        ,       no_argument,                0, 'h' },
@@ -201,6 +212,9 @@ static const struct option long_options[] = {
 
 static void do_opts(int argc, char **argv)
 {
+	for (int i=0; i<argc; i++) {
+		printf("arg %d: %s\n", i, argv[i]);
+	}
 	while (1) {
 		//int this_option_optind = optind ? optind : 1;
 		int option_index = 0;
@@ -211,6 +225,10 @@ static void do_opts(int argc, char **argv)
 		if (c == -1)
 			break;
 		switch (c) {
+		case 1:
+			gs = g_string_new(optarg);
+			g_ptr_array_add(opt_hosts, gs);
+			break;
 		case '1':
 			opt_single = 1;
 			break;
@@ -262,6 +280,13 @@ static void do_opts(int argc, char **argv)
 			exit(0);
 			break;
 		}
+	}
+	for (int i=optind; i<argc; i++) {
+		printf("leftover arg %d: %s\n", i, argv[i]);
+		if (i > optind) {
+			g_string_append_c(opt_command, ' ');
+		}
+		g_string_append(opt_command, argv[i]);
 	}
 }
 
