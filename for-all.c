@@ -7,13 +7,14 @@
 #include <getopt.h>
 #include <glib.h>
 
-static char *myversion = "0.0.1";
+static char *myversion = "0.0.2";
 
 static char *myname;
 
 static void setup(void);
 static void do_opts(int argc, char **argv);
 static void usage(int longusage, int ret);
+static int run_command(GString *command);
 
 #define N_NOT_LISTS 10
 
@@ -119,14 +120,19 @@ int main(int argc, char **argv)
 	}
 	printf("command: %s\n", opt_command->str);
 	for (int i=0; i<opt_hosts->len; i++) {
-		printf("%s", opt_ssh_program->str);
+		GString *cmd = g_string_new(opt_ssh_program->str);
 		for (int i=0; i<opt_ssh_options->len; i++) {
-			printf(" %s",
-			       ((GString*) g_ptr_array_index(opt_ssh_options, i))->str);
+			g_string_append_printf
+				(cmd, " %s",
+				 ((GString*) g_ptr_array_index(opt_ssh_options, i))->str);
 		}
-		printf(" %s -- %s\n",
-		       ((GString*) g_ptr_array_index(opt_hosts, i))->str,
-		       opt_command->str);
+		g_string_append_printf
+			(cmd, " %s -- %s",
+			 ((GString*) g_ptr_array_index(opt_hosts, i))->str,
+			 opt_command->str);
+		printf("%s\n", cmd->str);
+		run_command(cmd);
+		g_string_free(cmd, TRUE);
 	}
 	if (! n_args) {
 		usage(0, 1);
@@ -305,3 +311,20 @@ static void do_opts(int argc, char **argv)
 	}
 }
 
+
+/**
+ * Run a command with system(3).
+ *
+ * TODO: This should use fork/exec and wait.  That will require using an argv
+ * array, rather than a single string.
+ *
+ * @command What to do
+ *
+ * @return exit code of program.
+ */
+static int run_command(GString *command)
+{
+	int ret = 0;
+	ret = system(command->str);
+	return ret;
+}
