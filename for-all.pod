@@ -25,6 +25,10 @@ each host name - this is useful for table-like output of simple commands.
 
 Print a help message then exit.
 
+=item -D|--debug
+
+Print some extra debugging information.
+
 =item -V|--version
 
 Print the version then exit.

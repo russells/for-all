@@ -11,6 +11,7 @@ static char *myversion = "0.0.2";
 
 static char *myname;
 
+static void debug_print_flags(void);
 static void setup(void);
 static void do_opts(int argc, char **argv);
 static void usage(int longusage, int ret);
@@ -18,6 +19,7 @@ static int run_command(GString *command);
 
 #define N_NOT_LISTS 10
 
+static int         opt_debug = 0;	   /* -D, --debug */
 static int         opt_files = 0;	   /* -F, --files */
 static int         opt_list_only = 0;	   /* -L, --list-only */
 static GPtrArray * opt_hosts;		   /* non-option arguments */
@@ -41,84 +43,10 @@ int main(int argc, char **argv)
 
 	myname = argv[0];
 	do_opts(argc, argv);
-	int n_args = 0;
 
-	if (opt_single) {
-		printf("opt_single\n");
-		n_args++;
-	}
-	if (opt_files) {
-		printf("opt_files\n");
-		n_args++;
-	}
-	if (opt_hosts->len) {
-		for (int j=0; j<opt_hosts->len; j++) {
-			printf("host: %s\n",
-			       ((GString *)g_ptr_array_index(opt_hosts, j))->str);
-		}
-		n_args++;
-	}
-	if (opt_host_lists->len) {
-		for (int j=0; j<opt_host_lists->len; j++) {
-			printf("host list: %s\n",
-			       ((GString *)g_ptr_array_index(opt_host_lists, j))->str);
-		}
-		n_args++;
-	}
-	if (opt_list_only) {
-		printf("opt_list_only\n");
-		n_args++;
-	}
-	if (opt_not->len) {
-		for (int j=0; j<opt_not->len; j++) {
-			printf("not: %s\n",
-			       ((GString *)g_ptr_array_index(opt_not, j))->str);
-		}
-		n_args++;
-	}
-	if (opt_not_lists->len) {
-		for (int j=0; j<opt_not_lists->len; j++) {
-			printf("not list: %s\n",
-			       ((GString *)g_ptr_array_index(opt_not_lists, j))->str);
-		}
-		n_args++;
-	}
-	if (opt_quiet) {
-		printf("opt_quiet\n");
-		n_args++;
-	}
-	if (opt_reverse) {
-		printf("opt_reverse\n");
-		n_args++;
-	}
-	if (opt_single) {
-		printf("opt_single\n");
-		n_args++;
-	}
-	if (opt_sort) {
-		printf("opt_sort\n");
-		n_args++;
-	}
-	if (opt_ssh_options->len) {
-		for (int j=0; j<opt_ssh_options->len; j++) {
-			printf("ssh option: %s\n",
-			       ((GString *)g_ptr_array_index(opt_ssh_options, j))->str);
-		}
-		n_args++;
-	}
-	if (opt_ssh_program) {
-		printf("opt_ssh_program: %s\n", opt_ssh_program->str);
-		n_args++;
-	}
-	if (opt_no_tty) {
-		printf("opt_no_tty\n");
-		n_args++;
-	}
-	if (opt_user) {
-		printf("opt_user: %s\n", opt_user->str);
-		n_args++;
-	}
-	printf("command: %s\n", opt_command->str);
+	if (opt_debug)
+		debug_print_flags();
+
 	for (int i=0; i<opt_hosts->len; i++) {
 		GString *cmd = g_string_new(opt_ssh_program->str);
 		for (int i=0; i<opt_ssh_options->len; i++) {
@@ -134,7 +62,7 @@ int main(int argc, char **argv)
 		run_command(cmd);
 		g_string_free(cmd, TRUE);
 	}
-	if (! n_args) {
+	if (0 == opt_command->len) {
 		usage(0, 1);
 	}
 	return 0;
@@ -211,8 +139,9 @@ static void usage(int longusage, int ret)
 }
 
 
-static const char* const short_options = "-1FhH:LqsS:u:n:N:rTo:V";
+static const char* const short_options = "-1DFhH:LqsS:u:n:N:rTo:V";
 static const struct option long_options[] = {
+	{ "debug"       ,       no_argument,       &opt_debug, 'D' },
 	{ "files"       ,       no_argument,       &opt_files, 'F' },
 	{ "help"        ,       no_argument,                0, 'h' },
 	{ "quiet"       ,       no_argument,       &opt_quiet, 'q' },
@@ -233,8 +162,10 @@ static const struct option long_options[] = {
 
 static void do_opts(int argc, char **argv)
 {
-	for (int i=0; i<argc; i++) {
-		printf("arg %d: %s\n", i, argv[i]);
+	if (opt_debug) {
+		for (int i=0; i<argc; i++) {
+			printf("arg %d: %s\n", i, argv[i]);
+		}
 	}
 	while (1) {
 		//int this_option_optind = optind ? optind : 1;
@@ -252,6 +183,9 @@ static void do_opts(int argc, char **argv)
 			break;
 		case '1':
 			opt_single = 1;
+			break;
+		case 'D':
+			opt_debug = 'D';
 			break;
 		case 'F':
 			opt_files = 1;
@@ -303,12 +237,79 @@ static void do_opts(int argc, char **argv)
 		}
 	}
 	for (int i=optind; i<argc; i++) {
-		printf("leftover arg %d: %s\n", i, argv[i]);
+		if (opt_debug)
+			printf("leftover arg %d: %s\n", i, argv[i]);
 		if (i > optind) {
 			g_string_append_c(opt_command, ' ');
 		}
 		g_string_append(opt_command, argv[i]);
 	}
+}
+
+
+static void debug_print_flags(void)
+{
+	if (opt_single) {
+		printf("opt_single\n");
+	}
+	if (opt_files) {
+		printf("opt_files\n");
+	}
+	if (opt_hosts->len) {
+		for (int j=0; j<opt_hosts->len; j++) {
+			printf("host: %s\n",
+			       ((GString *)g_ptr_array_index(opt_hosts, j))->str);
+		}
+	}
+	if (opt_host_lists->len) {
+		for (int j=0; j<opt_host_lists->len; j++) {
+			printf("host list: %s\n",
+			       ((GString *)g_ptr_array_index(opt_host_lists, j))->str);
+		}
+	}
+	if (opt_list_only) {
+		printf("opt_list_only\n");
+	}
+	if (opt_not->len) {
+		for (int j=0; j<opt_not->len; j++) {
+			printf("not: %s\n",
+			       ((GString *)g_ptr_array_index(opt_not, j))->str);
+		}
+	}
+	if (opt_not_lists->len) {
+		for (int j=0; j<opt_not_lists->len; j++) {
+			printf("not list: %s\n",
+			       ((GString *)g_ptr_array_index(opt_not_lists, j))->str);
+		}
+	}
+	if (opt_quiet) {
+		printf("opt_quiet\n");
+	}
+	if (opt_reverse) {
+		printf("opt_reverse\n");
+	}
+	if (opt_single) {
+		printf("opt_single\n");
+	}
+	if (opt_sort) {
+		printf("opt_sort\n");
+	}
+	if (opt_ssh_options->len) {
+		for (int j=0; j<opt_ssh_options->len; j++) {
+			printf("ssh option: %s\n",
+			       ((GString *)g_ptr_array_index(opt_ssh_options, j))->str);
+		}
+	}
+	if (opt_ssh_program) {
+		printf("opt_ssh_program: %s\n", opt_ssh_program->str);
+	}
+	if (opt_no_tty) {
+		printf("opt_no_tty\n");
+	}
+	if (opt_user) {
+		printf("opt_user: %s\n", opt_user->str);
+	}
+	printf("command: %s\n", opt_command->str);
 }
 
 
