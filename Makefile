@@ -5,7 +5,7 @@ PROG = for-all
 # VersionNumber := $(shell grep ^VersionNumber $(PROG) | sed 's/.*=//')
 # VersionDate   := $(shell grep ^VersionDate   $(PROG) | sed 's/.*=//')
 
-CFLAGS += -Wall -Werror $(shell pkg-config --cflags glib-2.0)
+CFLAGS += -g -O0 -Wall -Werror $(shell pkg-config --cflags glib-2.0)
 LDFLAGS += $(shell pkg-config --libs glib-2.0)
 
 .PHONY: all

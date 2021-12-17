@@ -4,8 +4,34 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <wait.h>
 #include <getopt.h>
+#include <string.h> // strerror
+#include <assert.h> // strerror
+#include <errno.h>
 #include <glib.h>
+
+
+#define DD(n) if(opt_debug >= n)
+
+// GString to char*.
+#define g2c(p)      ( ((GString*)p)->str )
+// GString array index to GString*.
+#define a_g(p, i)   (  (GString*)(g_ptr_array_index(p,i)) )
+// GString array index to char*.
+#define a2g2c(p, i) ( a_g(p,i)->str )
+// char* array index to char*.
+#define a2c(p, i) ( (char*)(g_ptr_array_index(p,i)) )
+
+// Add pointer to array.
+#define ga(a,p) \
+	do { \
+		if (0 && opt_debug) {\
+			printf("adding to %s: %p\n", #a, p);\
+		}\
+		g_ptr_array_add(a,p);\
+	} while (0)
 
 static char *myversion = "0.0.2";
 
@@ -15,7 +41,10 @@ static void debug_print_flags(void);
 static void setup(void);
 static void do_opts(int argc, char **argv);
 static void usage(int longusage, int ret);
-static int run_command(GString *command);
+static int run_command(GString *ssh,
+		       GPtrArray *ssh_options,
+		       GString *host,
+		       GPtrArray *command);
 
 #define N_NOT_LISTS 10
 
@@ -34,7 +63,7 @@ static GPtrArray * opt_ssh_options = 0;	   /* -o, --ssh-option */
 static GString *   opt_ssh_program = 0;	   /* -S, --ssh-program */
 static int         opt_no_tty = 0;	   /* -T, --no-tty */
 static GString *   opt_user = 0;	   /* -u, --user */
-static GString *   opt_command = 0;	   /* Remote command */
+static GPtrArray * opt_command = 0;	   /* Remote command */
 
 int main(int argc, char **argv)
 {
@@ -48,19 +77,12 @@ int main(int argc, char **argv)
 		debug_print_flags();
 
 	for (int i=0; i<opt_hosts->len; i++) {
-		GString *cmd = g_string_new(opt_ssh_program->str);
-		for (int i=0; i<opt_ssh_options->len; i++) {
-			g_string_append_printf
-				(cmd, " %s",
-				 ((GString*) g_ptr_array_index(opt_ssh_options, i))->str);
-		}
-		g_string_append_printf
-			(cmd, " %s -- %s",
-			 ((GString*) g_ptr_array_index(opt_hosts, i))->str,
-			 opt_command->str);
-		printf("%s\n", cmd->str);
-		run_command(cmd);
-		g_string_free(cmd, TRUE);
+		GString *hostname = a_g(opt_hosts, i);
+		printf("\n-- %s\n", hostname->str);
+		run_command(opt_ssh_program,
+			    opt_ssh_options,
+			    hostname,
+			    opt_command);
 	}
 	if (0 == opt_command->len) {
 		usage(0, 1);
@@ -76,11 +98,9 @@ static void setup(void)
 	opt_not_lists = g_ptr_array_new();
 	opt_ssh_program = g_string_new("ssh");
 
-	GString *gs = g_string_new("-q");
 	opt_ssh_options = g_ptr_array_new();
-	g_ptr_array_add(opt_ssh_options, gs);
 
-	opt_command = g_string_new(0);
+	opt_command = g_ptr_array_new();
 }
 
 
@@ -141,7 +161,7 @@ static void usage(int longusage, int ret)
 
 static const char* const short_options = "-1DFhH:LqsS:u:n:N:rTo:V";
 static const struct option long_options[] = {
-	{ "debug"       ,       no_argument,       &opt_debug, 'D' },
+	{ "debug"       , optional_argument,                0, 'D' },
 	{ "files"       ,       no_argument,       &opt_files, 'F' },
 	{ "help"        ,       no_argument,                0, 'h' },
 	{ "quiet"       ,       no_argument,       &opt_quiet, 'q' },
@@ -162,11 +182,6 @@ static const struct option long_options[] = {
 
 static void do_opts(int argc, char **argv)
 {
-	if (opt_debug) {
-		for (int i=0; i<argc; i++) {
-			printf("arg %d: %s\n", i, argv[i]);
-		}
-	}
 	while (1) {
 		//int this_option_optind = optind ? optind : 1;
 		int option_index = 0;
@@ -179,13 +194,13 @@ static void do_opts(int argc, char **argv)
 		switch (c) {
 		case 1:
 			gs = g_string_new(optarg);
-			g_ptr_array_add(opt_hosts, gs);
+			ga(opt_hosts, gs);
 			break;
 		case '1':
 			opt_single = 1;
 			break;
 		case 'D':
-			opt_debug = 'D';
+			opt_debug ++;
 			break;
 		case 'F':
 			opt_files = 1;
@@ -195,22 +210,22 @@ static void do_opts(int argc, char **argv)
 			break;
 		case 'H':
 			gs = g_string_new(optarg);
-			g_ptr_array_add(opt_host_lists, gs);
+			ga(opt_host_lists, gs);
 			break;
 		case 'L':
 			opt_list_only = 'L';
 			break;
 		case 'n':
 			gs = g_string_new(optarg);
-			g_ptr_array_add(opt_not, gs);
+			ga(opt_not, gs);
 			break;
 		case 'N':
 			gs = g_string_new(optarg);
-			g_ptr_array_add(opt_not_lists, gs);
+			ga(opt_not_lists, gs);
 			break;
 		case 'o':
 			gs = g_string_new(optarg);
-			g_ptr_array_add(opt_ssh_options, gs);
+			ga(opt_ssh_options, gs);
 			break;
 		case 'q':
 			opt_quiet = 'q';
@@ -237,95 +252,154 @@ static void do_opts(int argc, char **argv)
 		}
 	}
 	for (int i=optind; i<argc; i++) {
-		if (opt_debug)
-			printf("leftover arg %d: %s\n", i, argv[i]);
-		if (i > optind) {
-			g_string_append_c(opt_command, ' ');
-		}
-		g_string_append(opt_command, argv[i]);
+		ga(opt_command, g_string_new(argv[i]));
 	}
 }
 
 
 static void debug_print_flags(void)
 {
-	if (opt_single) {
+	DD(1) if (opt_single) {
 		printf("opt_single\n");
 	}
-	if (opt_files) {
+	DD(1) if (opt_files) {
 		printf("opt_files\n");
 	}
-	if (opt_hosts->len) {
+	DD(1) if (opt_hosts->len) {
 		for (int j=0; j<opt_hosts->len; j++) {
 			printf("host: %s\n",
 			       ((GString *)g_ptr_array_index(opt_hosts, j))->str);
 		}
 	}
-	if (opt_host_lists->len) {
+	DD(2) if (opt_host_lists->len) {
 		for (int j=0; j<opt_host_lists->len; j++) {
 			printf("host list: %s\n",
 			       ((GString *)g_ptr_array_index(opt_host_lists, j))->str);
 		}
 	}
-	if (opt_list_only) {
+	DD(2) if (opt_list_only) {
 		printf("opt_list_only\n");
 	}
-	if (opt_not->len) {
+	DD(2) if (opt_not->len) {
 		for (int j=0; j<opt_not->len; j++) {
 			printf("not: %s\n",
 			       ((GString *)g_ptr_array_index(opt_not, j))->str);
 		}
 	}
-	if (opt_not_lists->len) {
+	DD(2) if (opt_not_lists->len) {
 		for (int j=0; j<opt_not_lists->len; j++) {
 			printf("not list: %s\n",
 			       ((GString *)g_ptr_array_index(opt_not_lists, j))->str);
 		}
 	}
-	if (opt_quiet) {
+	DD(1) if (opt_quiet) {
 		printf("opt_quiet\n");
 	}
-	if (opt_reverse) {
+	DD(1) if (opt_reverse) {
 		printf("opt_reverse\n");
 	}
-	if (opt_single) {
+	DD(1) if (opt_single) {
 		printf("opt_single\n");
 	}
-	if (opt_sort) {
+	DD(1) if (opt_sort) {
 		printf("opt_sort\n");
 	}
-	if (opt_ssh_options->len) {
+	DD(1) if (opt_ssh_options->len) {
 		for (int j=0; j<opt_ssh_options->len; j++) {
 			printf("ssh option: %s\n",
 			       ((GString *)g_ptr_array_index(opt_ssh_options, j))->str);
 		}
 	}
-	if (opt_ssh_program) {
+	DD(1) if (opt_ssh_program) {
 		printf("opt_ssh_program: %s\n", opt_ssh_program->str);
 	}
-	if (opt_no_tty) {
+	DD(1) if (opt_no_tty) {
 		printf("opt_no_tty\n");
 	}
-	if (opt_user) {
+	DD(1) if (opt_user) {
 		printf("opt_user: %s\n", opt_user->str);
 	}
-	printf("command: %s\n", opt_command->str);
+	DD(1) if (opt_command->len) {
+		for (int i=0; i<opt_command->len; i++) {
+			if (i<0) {
+				printf(" ");
+			}
+			printf("{%s}",
+			       ((GString *)g_ptr_array_index(opt_command, i))->str);
+		}
+		printf("\n");
+	}
 }
 
 
 /**
- * Run a command with system(3).
+ * Run a command on a host.
  *
- * TODO: This should use fork/exec and wait.  That will require using an argv
- * array, rather than a single string.
+ * @ssh command to run to access the host.
  *
- * @command What to do
+ * @ssh_options extra args for the ssh command.
+ *
+ * @host where to run the following command.
+ *
+ * @command what to run on the host.
  *
  * @return exit code of program.
  */
-static int run_command(GString *command)
+static int run_command(GString *ssh,
+		       GPtrArray *ssh_options,
+		       GString *host,
+		       GPtrArray *command)
 {
-	int ret = 0;
-	ret = system(command->str);
+	int ret;
+	int wstatus;
+	pid_t pid, pid2;
+	/** args is an array of char*, not an array of GString*. */
+	GPtrArray *args = g_ptr_array_new();
+
+	ga(args, g2c(ssh));
+	g_ptr_array_add(args, "-q");
+	for (int i=0; i<ssh_options->len; i++) {
+		g_ptr_array_add(args, "-o");
+		ga(args, a2g2c(ssh_options, i));
+	}
+	ga(args, g2c(host));
+	ga(args, "--");
+	for (int i=0; i<command->len; i++) {
+		ga(args, a2g2c(command, i));
+	}
+	ga(args, NULL);
+
+	if (opt_debug) {
+		//printf("-- rc: args->len=%d\n", args->len);
+		//printf("-- rc: args...\n");
+		for (int i=0;
+		     i<(args->len)-1; /* -1 so we don't print the NULL. */
+		     i++) {
+			if (i) printf(" ");
+			printf("{%s}", a2c(args, i));
+		}
+		printf("\n");
+	}
+
+	pid = fork();
+	switch (pid) {
+	case -1:
+		// Error.
+		fprintf(stderr, "Cannot fork: %s\n", strerror(errno));
+		ret = -1;
+	case 0:
+		// I am the child.
+		execvp(ssh->str, (char * const *) args->pdata);
+		fprintf(stderr, "Cannot exec %s: %s\n", ssh->str,
+			strerror(errno));
+		ret = -1;
+	default:
+		// I am the parent.
+		pid2 = wait(&wstatus);
+		assert(pid == pid2);
+		ret = WEXITSTATUS(wstatus);
+	}
+
+	g_ptr_array_free(args, TRUE);
 	return ret;
 }
