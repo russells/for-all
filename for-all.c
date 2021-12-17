@@ -41,10 +41,11 @@ static void debug_print_flags(void);
 static void setup(void);
 static void do_opts(int argc, char **argv);
 static void usage(int longusage, int ret);
-static int run_command(GString *ssh,
-		       GPtrArray *ssh_options,
-		       GString *host,
-		       GPtrArray *command);
+static void run_command(GString *ssh,
+			GPtrArray *ssh_options,
+			GString *host,
+			GPtrArray *command);
+static void print_s_f_lists(void);
 
 #define N_NOT_LISTS 10
 
@@ -64,6 +65,8 @@ static GString *   opt_ssh_program = 0;	   /* -S, --ssh-program */
 static int         opt_no_tty = 0;	   /* -T, --no-tty */
 static GString *   opt_user = 0;	   /* -u, --user */
 static GPtrArray * opt_command = 0;	   /* Remote command */
+static GPtrArray * success_hosts;	   /* List of successes */
+static GPtrArray * failure_hosts;	   /* List of failures */
 
 int main(int argc, char **argv)
 {
@@ -83,12 +86,55 @@ int main(int argc, char **argv)
 			    opt_ssh_options,
 			    hostname,
 			    opt_command);
+		if (! opt_quiet) {
+			print_s_f_lists();
+		}
 	}
 	if (0 == opt_command->len) {
 		usage(0, 1);
 	}
 	return 0;
 }
+
+
+static int host_len(void)
+{
+	static int len = 0;
+	GString *gs;
+	if (! len) {
+		for (int i=0; i<opt_hosts->len; i++) {
+			gs = (GString*) g_ptr_array_index(opt_hosts, i);
+			int tl = gs->len;
+			if (tl > len)
+				len = tl;
+		}
+		len += 8;
+		len -= (len % 8);
+	}
+	return len;
+}
+
+
+static void print_hosts(const char *label, GPtrArray *list)
+{
+	printf("%s:\n", label);
+	for (int i=0; i<list->len; i++) {
+		printf("\t%s\n", a2g2c(list, i));
+	}
+}
+
+
+static void print_s_f_lists(void)
+{
+	printf("\n----\n");
+	if (success_hosts->len) {
+		print_hosts("Success", success_hosts);
+	}
+	if (failure_hosts->len) {
+		print_hosts("Failure", failure_hosts);
+	}
+}
+
 
 static void setup(void)
 {
@@ -101,6 +147,9 @@ static void setup(void)
 	opt_ssh_options = g_ptr_array_new();
 
 	opt_command = g_ptr_array_new();
+
+	success_hosts = g_ptr_array_new();
+	failure_hosts = g_ptr_array_new();
 }
 
 
@@ -332,6 +381,17 @@ static void debug_print_flags(void)
 }
 
 
+static void failure(GString *s)
+{
+	g_ptr_array_add(failure_hosts, s);
+}
+
+static void success(GString *s)
+{
+	g_ptr_array_add(success_hosts, s);
+}
+
+
 /**
  * Run a command on a host.
  *
@@ -345,10 +405,10 @@ static void debug_print_flags(void)
  *
  * @return exit code of program.
  */
-static int run_command(GString *ssh,
-		       GPtrArray *ssh_options,
-		       GString *host,
-		       GPtrArray *command)
+static void run_command(GString *ssh,
+			GPtrArray *ssh_options,
+			GString *host,
+			GPtrArray *command)
 {
 	int ret;
 	int wstatus;
@@ -381,25 +441,45 @@ static int run_command(GString *ssh,
 		printf("\n");
 	}
 
+	GString *gs = g_string_new("");
+
 	pid = fork();
 	switch (pid) {
 	case -1:
 		// Error.
-		fprintf(stderr, "Cannot fork: %s\n", strerror(errno));
-		ret = -1;
+		g_string_printf(gs, "%s # Cannot fork: %s", host->str,
+				strerror(errno));
+		fprintf(stderr, "%s\n", gs->str);
+		failure(gs);
+		break;
 	case 0:
 		// I am the child.
 		execvp(ssh->str, (char * const *) args->pdata);
 		fprintf(stderr, "Cannot exec %s: %s\n", ssh->str,
 			strerror(errno));
-		ret = -1;
+		exit(128);
 	default:
 		// I am the parent.
 		pid2 = wait(&wstatus);
 		assert(pid == pid2);
 		ret = WEXITSTATUS(wstatus);
+		switch (ret) {
+		case 0:
+			g_string_printf(gs, "%s", host->str);
+			success(gs);
+			break;
+		case 128:
+			g_string_printf(gs, "%-*s# Cannot exec %s",
+					host_len(), host->str, ssh->str);
+			failure(gs);
+			break;
+		default:
+			g_string_printf(gs, "%-*s # (%d)",
+					host_len(), host->str, ret);
+			failure(gs);
+			break;
+		}
 	}
 
 	g_ptr_array_free(args, TRUE);
-	return ret;
 }
