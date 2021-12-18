@@ -3,3 +3,10 @@ for-all.1
 for-all.pdf
 
 *.o
+
+
+# Test lists
+list-*
+list.*
+*.list
+

@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <glib.h>
 
+#include "lists.h"
 
 #define DD(n) if(opt_debug >= n)
 
@@ -38,7 +39,7 @@ static char *myversion = "0.0.2";
 static char *myname;
 
 static void debug_print_flags(void);
-static void setup(void);
+static void init(void);
 static void do_opts(int argc, char **argv);
 static void usage(int longusage, int ret);
 static void run_command(GString *ssh,
@@ -54,10 +55,6 @@ static void list_files(void);
 static int         opt_debug = 0;	   /* -D, --debug */
 static int         opt_files = 0;	   /* -F, --files */
 static int         opt_list_only = 0;	   /* -L, --list-only */
-static GPtrArray * opt_hosts;		   /* non-option arguments */
-static GPtrArray * opt_host_lists;	   /* -H, --host-list */
-static GPtrArray * opt_not;		   /* -n, --not */
-static GPtrArray * opt_not_lists;	   /* -N, --not-list */
 static int         opt_quiet = 0;	   /* -q, --quiet */
 static int         opt_single = 0;	   /* -1, --single */
 static int         opt_reverse = 0;	   /* -r, --reverse */
@@ -73,7 +70,7 @@ static GPtrArray * failure_hosts;	   /* List of failures */
 int main(int argc, char **argv)
 {
 
-	setup();
+	init();
 
 	myname = argv[0];
 	do_opts(argc, argv);
@@ -91,8 +88,8 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	for (int i=0; i<opt_hosts->len; i++) {
-		GString *hostname = a_g(opt_hosts, i);
+	for (int i=0; i<n_hosts(); i++) {
+		GString *hostname = get_host(i);
 		printf("\n-- %s\n", hostname->str);
 		run_command(opt_ssh_program,
 			    opt_ssh_options,
@@ -112,8 +109,12 @@ int main(int argc, char **argv)
 static void list_hosts(void)
 {
 	printf("Hosts:\n");
-	for (int i=0; i<opt_hosts->len; i++) {
-		printf("        %s\n", a2g2c(opt_hosts, i));
+	for (int i=0; i<n_hosts(); i++) {
+		printf("        %s\n", g2c(get_host(i)));
+	}
+	printf("Not hosts:\n");
+	for (int i=0; i<n_not_hosts(); i++) {
+		printf("        %s\n", g2c(get_not_host(i)));
 	}
 }
 
@@ -121,12 +122,12 @@ static void list_hosts(void)
 static void list_files(void)
 {
 	printf("Lists:\n");
-	for (int i=0; i<opt_host_lists->len; i++) {
-		printf("        %s\n", a2g2c(opt_host_lists, i));
+	for (int i=0; i<n_host_lists(); i++) {
+		printf("        %s\n", g2c(get_host_list(i)));
 	}
 	printf("Not lists:\n");
-	for (int i=0; i<opt_not_lists->len; i++) {
-		printf("        %s\n", a2g2c(opt_not_lists, i));
+	for (int i=0; i<n_not_host_lists(); i++) {
+		printf("        %s\n", g2c(get_not_host_list(i)));
 	}
 }
 
@@ -134,10 +135,9 @@ static void list_files(void)
 static int host_len(void)
 {
 	static int len = 0;
-	GString *gs;
 	if (! len) {
-		for (int i=0; i<opt_hosts->len; i++) {
-			gs = (GString*) g_ptr_array_index(opt_hosts, i);
+		for (int i=0; i<n_hosts(); i++) {
+			GString *gs = get_host(i);
 			int tl = gs->len;
 			if (tl > len)
 				len = tl;
@@ -170,12 +170,9 @@ static void print_s_f_lists(void)
 }
 
 
-static void setup(void)
+static void init(void)
 {
-	opt_hosts = g_ptr_array_new();
-	opt_host_lists = g_ptr_array_new();
-	opt_not = g_ptr_array_new();
-	opt_not_lists = g_ptr_array_new();
+	init_lists();
 	opt_ssh_program = g_string_new("ssh");
 
 	opt_ssh_options = g_ptr_array_new();
@@ -276,8 +273,9 @@ static void do_opts(int argc, char **argv)
 			break;
 		switch (c) {
 		case 1:
+			// case 1 is for non-option arguments, up to "--"
 			gs = g_string_new(optarg);
-			ga(opt_hosts, gs);
+			add_host(gs);
 			break;
 		case '1':
 			opt_single = 1;
@@ -293,18 +291,18 @@ static void do_opts(int argc, char **argv)
 			break;
 		case 'H':
 			gs = g_string_new(optarg);
-			ga(opt_host_lists, gs);
+			add_list(gs);
 			break;
 		case 'L':
 			opt_list_only = 'L';
 			break;
 		case 'n':
 			gs = g_string_new(optarg);
-			ga(opt_not, gs);
+			add_not_host(gs);
 			break;
 		case 'N':
 			gs = g_string_new(optarg);
-			ga(opt_not_lists, gs);
+			add_not_list(gs);
 			break;
 		case 'o':
 			gs = g_string_new(optarg);
@@ -348,31 +346,27 @@ static void debug_print_flags(void)
 	DD(1) if (opt_files) {
 		printf("opt_files\n");
 	}
-	DD(1) if (opt_hosts->len) {
-		for (int j=0; j<opt_hosts->len; j++) {
-			printf("host: %s\n",
-			       ((GString *)g_ptr_array_index(opt_hosts, j))->str);
+	DD(1) if (n_hosts()) {
+		for (int j=0; j<n_hosts(); j++) {
+			printf("host: %s\n", g2c(get_host(j)));
 		}
 	}
-	DD(2) if (opt_host_lists->len) {
-		for (int j=0; j<opt_host_lists->len; j++) {
-			printf("host list: %s\n",
-			       ((GString *)g_ptr_array_index(opt_host_lists, j))->str);
+	DD(2) if (n_host_lists()) {
+		for (int j=0; j<n_host_lists(); j++) {
+			printf("host list: %s\n", g2c(get_host_list(j)));
 		}
 	}
 	DD(2) if (opt_list_only) {
 		printf("opt_list_only\n");
 	}
-	DD(2) if (opt_not->len) {
-		for (int j=0; j<opt_not->len; j++) {
-			printf("not: %s\n",
-			       ((GString *)g_ptr_array_index(opt_not, j))->str);
+	DD(2) if (n_not_hosts()) {
+		for (int j=0; j<n_not_hosts(); j++) {
+			printf("not: %s\n", g2c(get_not_host(j)));
 		}
 	}
-	DD(2) if (opt_not_lists->len) {
-		for (int j=0; j<opt_not_lists->len; j++) {
-			printf("not list: %s\n",
-			       ((GString *)g_ptr_array_index(opt_not_lists, j))->str);
+	DD(2) if (n_not_host_lists()) {
+		for (int j=0; j<n_not_host_lists(); j++) {
+			printf("not list: %s\n", g2c(get_not_host_list(j)));
 		}
 	}
 	DD(1) if (opt_quiet) {

@@ -2,19 +2,23 @@
 
 PROG = for-all
 
+SRCS = $(PROG).c lists.c
+OBJS = $(SRCS:.c=.o)
+
 # VersionNumber := $(shell grep ^VersionNumber $(PROG) | sed 's/.*=//')
 # VersionDate   := $(shell grep ^VersionDate   $(PROG) | sed 's/.*=//')
 
 CFLAGS += -g -O0 -Wall -Werror $(shell pkg-config --cflags glib-2.0)
 LDFLAGS += $(shell pkg-config --libs glib-2.0)
 
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 .PHONY: all
 all: $(PROG) man pdf
 
-$(PROG): $(PROG).o
-	$(CC) $(PROG).o -o $(PROG) $(LDFLAGS)
-
-$(PROG).o: $(PROG).c
+$(PROG): $(OBJS)
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 # .PHONY: install
 # install: man
@@ -34,4 +38,4 @@ $(PROG).pdf: $(PROG).1
 
 .PHONY: clean
 clean:
-	rm -f $(PROG) $(PROG).o $(PROG).1 $(PROG).pdf
+	rm -f $(PROG) $(OBJS) $(PROG).1 $(PROG).pdf
