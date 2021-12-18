@@ -46,6 +46,8 @@ static void run_command(GString *ssh,
 			GString *host,
 			GPtrArray *command);
 static void print_s_f_lists(void);
+static void list_hosts(void);
+static void list_files(void);
 
 #define N_NOT_LISTS 10
 
@@ -79,6 +81,16 @@ int main(int argc, char **argv)
 	if (opt_debug)
 		debug_print_flags();
 
+	if (opt_list_only) {
+		list_hosts();
+	}
+	if (opt_files) {
+		list_files();
+	}
+	if (opt_list_only || opt_files) {
+		exit(0);
+	}
+
 	for (int i=0; i<opt_hosts->len; i++) {
 		GString *hostname = a_g(opt_hosts, i);
 		printf("\n-- %s\n", hostname->str);
@@ -94,6 +106,28 @@ int main(int argc, char **argv)
 		usage(0, 1);
 	}
 	return 0;
+}
+
+
+static void list_hosts(void)
+{
+	printf("Hosts:\n");
+	for (int i=0; i<opt_hosts->len; i++) {
+		printf("        %s\n", a2g2c(opt_hosts, i));
+	}
+}
+
+
+static void list_files(void)
+{
+	printf("Lists:\n");
+	for (int i=0; i<opt_host_lists->len; i++) {
+		printf("        %s\n", a2g2c(opt_host_lists, i));
+	}
+	printf("Not lists:\n");
+	for (int i=0; i<opt_not_lists->len; i++) {
+		printf("        %s\n", a2g2c(opt_not_lists, i));
+	}
 }
 
 
