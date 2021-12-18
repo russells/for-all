@@ -436,8 +436,6 @@ static void success(GString *s)
  * @host where to run the following command.
  *
  * @command what to run on the host.
- *
- * @return exit code of program.
  */
 static void run_command(GString *ssh,
 			GPtrArray *ssh_options,
