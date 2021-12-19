@@ -42,6 +42,7 @@ static void debug_print_flags(void);
 static void init(void);
 static void do_opts(int argc, char **argv);
 static void usage(int longusage, int ret);
+static void do_host(int i);
 static void run_command(GString *ssh,
 			GPtrArray *ssh_options,
 			GString *host,
@@ -89,21 +90,34 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	for (int i=0; i<n_hosts(); i++) {
-		GString *hostname = get_host(i);
-		printf("\n-- %s\n", hostname->str);
-		run_command(opt_ssh_program,
-			    opt_ssh_options,
-			    hostname,
-			    opt_command);
-		if (! opt_quiet) {
-			print_s_f_lists();
+	if (opt_reverse) {
+		for (int i=n_hosts()-1; i>=0; i--) {
+			do_host(i);
+		}
+	} else {
+		for (int i=0; i<n_hosts(); i++) {
+			do_host(i);
 		}
 	}
+
 	if (0 == opt_command->len) {
 		usage(0, 1);
 	}
 	return 0;
+}
+
+
+static void do_host(int i)
+{
+	GString *hostname = get_host(i);
+	printf("\n-- %s\n", hostname->str);
+	run_command(opt_ssh_program,
+		    opt_ssh_options,
+		    hostname,
+		    opt_command);
+	if (! opt_quiet) {
+		print_s_f_lists();
+	}
 }
 
 
