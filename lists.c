@@ -95,13 +95,6 @@ void add_not_host(GString *host)
 /**
  * Given a line of text, see if it matches a host name specification.
  *
- * A line has
- * - optional white space
- * - optional host name
- * - optional white space
- * - optional # with any other characters following
- * - end of line.
- *
  * @param line the text to scan for a host name.
  *
  * @return a newly allocated GString if a host name is found, or NULL if not
@@ -122,19 +115,34 @@ static GString *line_to_host(char *line)
 }
 
 
+/**
+ * Match a line with a regex, looking for a host name.
+ *
+ * A line has
+ * - optional white space
+ * - optional host name
+ * - optional white space
+ * - optional # with any other characters following
+ * - end of line.
+ *
+ * @param line the text of the line to match
+ * @param name pointer to a pointer in which to save the start of the name
+ * @param namelen pointer to where to save the length of the name
+ *
+ * @return true if a match was found, 0 otherwise.
+ */
 static int line_host_match(char *line, char **name, int *namelen)
 {
 	static int compiled = 0;
+	static regex_t reg;
 	int regret;
-	regex_t reg;
 	regmatch_t matches[3];
 	regoff_t off, len;
 
 	static char lineregex[]
 		= "^\\s*([[:alnum:]]+[[:alnum:]\\.-]*)\\s*(#.*)?";
-	//= "^\([[:alpha:]])+.*";
 
-	if (TRUE || ! compiled) {
+	if (! compiled) {
 		regret = regcomp(&reg, lineregex,
 				 REG_EXTENDED | REG_NEWLINE);
 		if (regret) {
