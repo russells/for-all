@@ -34,7 +34,7 @@
 		g_ptr_array_add(a,p);\
 	} while (0)
 
-static char *myversion = "0.0.2";
+static char *myversion = "0.0.3";
 
 static char *myname;
 
@@ -208,9 +208,10 @@ Usage: %s [options] [hosts] -- command\n\
        %s [options] [hosts] -L\n\
        %s [options] [hosts] -F\n";
 static const char * const long_usage_message = "\
+  * means not implemented\n\
     -h|--help       This help\n\
     -V|--version    Print version and exit\n\
-    -1|--single     Output on a single line, with host name\n\
+  * -1|--single     Output on a single line, with host name\n\
                     Turns on -q\n\
     -F|--files      Show which list files are read\n\
     -H file|--hostlist=file\n\
@@ -221,13 +222,13 @@ static const char * const long_usage_message = "\
     -N file|--notlist=file\n\
                     Exclude hosts in this list\n\
     -o sshoption    Add \"-o sshoption\" to the ssh command line\n\
-    -q              Quiet (do not print commands and machine names)\n\
+  * -q              Quiet (do not print commands and machine names)\n\
     -S prog|--ssh-program=prog\n\
                     Use prog as ssh command (experimental)\n\
     -s|--sort       Sort the host list\n\
     -r              Do the list in reverse\n\
-    -T|--no-tty     Don't allocate a tty\n\
-    -u user         Run commands as user\n\
+  * -T|--no-tty     Don't allocate a tty\n\
+  * -u user         Run commands as user\n\
     [hosts]         Optionally specify hosts to operate on - if none\n\
                     specified and no list specified, defaults to the\n\
                     \"all\" list\n\
