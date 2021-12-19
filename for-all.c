@@ -80,6 +80,10 @@ int main(int argc, char **argv)
 	if (opt_debug)
 		debug_print_flags();
 
+	if (opt_sort) {
+		sort_hosts();
+	}
+
 	if (opt_list_only) {
 		list_hosts();
 	}

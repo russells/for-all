@@ -221,11 +221,21 @@ void add_not_list(GString *listname)
 }
 
 
+int compare_hosts(gconstpointer a, gconstpointer b)
+{
+	const GString *ga = *((GString **) a);
+	const GString *gb = *((GString **) b);
+	return strcmp(ga->str, gb->str);
+}
+
+
 /**
  * Sort the lists in place.
  */
 void sort_hosts(void)
 {
+	g_ptr_array_sort(hosts, compare_hosts);
+	g_ptr_array_sort(nots, compare_hosts);
 }
 
 

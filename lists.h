@@ -21,6 +21,7 @@ GString *get_host(int i);
 GString *get_not_host(int i);
 GString *get_host_list(int i);
 GString *get_not_host_list(int i);
+void sort_hosts(void);
 void process_lists(void);
 
 
