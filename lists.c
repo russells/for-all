@@ -28,6 +28,7 @@ static void hosts_remove(gpointer x);
 
 static GString *line_to_host(char *line);
 static int line_host_match(char *line, char **name, int *namelen);
+static int in_list(GPtrArray *a, GString *h);
 
 
 
@@ -213,17 +214,6 @@ void add_not_list(GString *listname)
 
 
 /**
- * Is a host to be be done?
- *
- * @return TRUE if yes, FALSE if not.
- */
-int is_host(GString *host)
-{
-	return FALSE;
-}
-
-
-/**
  * Sort the lists in place.
  */
 void sort_hosts(void)
@@ -231,8 +221,33 @@ void sort_hosts(void)
 }
 
 
+void process_lists(void)
+{
+	for (int i=0; i<hosts->len; i++) {
+		if (in_list(nots, (GString*) g_ptr_array_index(hosts, i))) {
+			g_ptr_array_remove_index(hosts, i);
+			i--;
+		}
+	}
+}
+
+
 static void hosts_remove(gpointer x)
 {
 	GString *gs = (GString *) x;
 	g_string_free(gs, TRUE);
+}
+
+
+/**
+ * Is a host in an array?
+ */
+static int in_list(GPtrArray *a, GString *h)
+{
+	for (int i=0; i<a->len; i++) {
+		if (g_string_equal(h, (GString*)g_ptr_array_index(a,i))) {
+			return TRUE;
+		}
+	}
+	return FALSE;
 }

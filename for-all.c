@@ -74,6 +74,7 @@ int main(int argc, char **argv)
 
 	myname = argv[0];
 	do_opts(argc, argv);
+	process_lists();
 
 	if (opt_debug)
 		debug_print_flags();
