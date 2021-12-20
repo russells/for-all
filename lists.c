@@ -183,14 +183,14 @@ static void read_one_list(GPtrArray *list, GString *listname)
 		return;
 	}
 
-	data = malloc(256);
 	size = 256;
+	data = malloc(size);
 	while (1) {
 		ssize_t ret;
 		ret = getline(&data, &size, f);
 		if (-1 == ret) {
 			int err = errno;
-			if (0 != err) {
+			if (!feof(f)) {
 				fprintf(stderr, "error reading %s: %s\n",
 					listname->str, strerror(err));
 			}
