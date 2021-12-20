@@ -92,18 +92,33 @@ GString *get_not_host_list(int i)
 }
 
 
+/**
+ * Add a host name to the hosts list, if the host name is not already in the
+ * list.  We own the GString* here, so need to free it if it's not used.
+ *
+ * @param host the host name to add
+ */
 void add_host(GString *host)
 {
 	if (! in_list(hosts, host)) {
 		g_ptr_array_add(hosts, host);
+	} else {
+		g_string_free(host, TRUE);
 	}
 }
 
 
+/**
+ * Add a host name to the not hosts list.
+ *
+ * @see add_host()
+ */
 void add_not_host(GString *host)
 {
 	if (! in_list(nots, host)) {
 		g_ptr_array_add(nots, host);
+	} else {
+		g_string_free(host, TRUE);
 	}
 }
 
@@ -232,10 +247,10 @@ static int read_one_list(GPtrArray *list, GString *filename)
 		GString *gs = line_to_host(data);
 		if (gs) {
 			if (in_list(list, gs)) {
-				printf("Nooooo %s from %s\n", gs->str, filename->str);
+				//printf("Nooooo %s from %s\n", gs->str, filename->str);
 				g_string_free(gs, TRUE);
 			} else {
-				printf("adding %s from %s\n", gs->str, filename->str);
+				//printf("adding %s from %s\n", gs->str, filename->str);
 				// gs is newly allocated, and the host list
 				// takes over ownership.
 				g_ptr_array_add(list, gs);
