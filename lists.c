@@ -14,18 +14,7 @@ GPtrArray *host_lists;
 GPtrArray *not_host_lists;
 
 
-/**
- * Called when we remove a string from the hosts list.
- *
- * The hosts list owns the GStrings, so we want to deallocate them.  This is
- * called after we process all the host names and lists, so we can remove hosts
- * from the list of hosts to contact.
- *
- * x the GString that is being removed.
- */
 static void hosts_remove(gpointer x);
-
-
 static GString *line_to_host(char *line);
 static int line_host_match(char *line, char **name, int *namelen);
 static int in_list(GPtrArray *a, GString *h);
@@ -42,12 +31,27 @@ void init_lists(void)
 }
 
 
-int n_hosts(void) { return hosts->len; }
-int n_not_hosts(void) { return nots->len; }
-int n_host_lists(void) { return host_lists->len; }
-int n_not_host_lists(void) { return not_host_lists->len; }
+/** How many hosts do we have? */
+int n_hosts          (void) { return                  hosts->len; }
+
+/** How many not hosts do we have? */
+int n_not_hosts      (void) { return                   nots->len; }
+
+/** How many hosts lists do we have? */
+int n_host_lists     (void) { return             host_lists->len; }
+
+/** How many not hosts lists do we have? */
+int n_not_host_lists (void) { return         not_host_lists->len; }
 
 
+/**
+ * Get one host name from the hosts list.  Caller should call n_hosts() first
+ * to get the maximum index.
+ *
+ * @param i index of the host.
+ * @return pointer to a host name
+ * @see n_hosts()
+ */
 GString *get_host(int i)
 {
 	assert(i >= 0);
@@ -56,6 +60,14 @@ GString *get_host(int i)
 }
 
 
+/**
+ * Get one host name from the not hosts list.  Caller should call n_not_hosts()
+ * first to get the maximum index.
+ *
+ * @param i index of the host.
+ * @return pointer to a host name
+ * @see n_not_hosts()
+ */
 GString *get_not_host(int i)
 {
 	assert(i >= 0);
@@ -93,12 +105,16 @@ void add_not_host(GString *host)
 
 
 /**
- * Given a line of text, see if it matches a host name specification.
+ * Given a line of text, see if it matches a host name specification.  This
+ * function is here to do the GString creation - regex matching is done by
+ * line_host_match().
  *
  * @param line the text to scan for a host name.
  *
  * @return a newly allocated GString if a host name is found, or NULL if not
  * host name is found.
+ *
+ * @see line_host_match()
  */
 static GString *line_to_host(char *line)
 {
@@ -170,6 +186,14 @@ static int line_host_match(char *line, char **name, int *namelen)
 }
 
 
+/**
+ * Read one list file.  We read each line from the file and get the host name
+ * from the line, if there is one.
+ *
+ * @param list the list to keep hosts specified in this file
+ * @param listname the file name of the list to read
+ * @see line_host_match(char*,char**,int*)
+ */
 static void read_one_list(GPtrArray *list, GString *listname)
 {
 	FILE *f;
@@ -189,6 +213,7 @@ static void read_one_list(GPtrArray *list, GString *listname)
 		ssize_t ret;
 		ret = getline(&data, &size, f);
 		if (-1 == ret) {
+			// getline() returns -1 on error, and also on EOF.
 			int err = errno;
 			if (!feof(f)) {
 				fprintf(stderr, "error reading %s: %s\n",
@@ -221,6 +246,12 @@ void add_not_list(GString *listname)
 }
 
 
+/**
+ * Compare two hosts by name.
+ *
+ * @return an int indicating the order
+ * @see strcmp(3)
+ */
 int compare_hosts(gconstpointer a, gconstpointer b)
 {
 	const GString *ga = *((GString **) a);
@@ -239,6 +270,9 @@ void sort_hosts(void)
 }
 
 
+/**
+ * Remove hosts from the hosts list, that are also in the not list.
+ */
 void process_lists(void)
 {
 	for (int i=0; i<hosts->len; i++) {
@@ -250,6 +284,15 @@ void process_lists(void)
 }
 
 
+/**
+ * Called when we remove a string from the hosts list.
+ *
+ * The hosts list owns the GStrings, so we want to deallocate them.  This is
+ * called after we process all the host names and lists, so we can remove hosts
+ * from the list of hosts to contact.
+ *
+ * @param x the GString that is being removed.
+ */
 static void hosts_remove(gpointer x)
 {
 	GString *gs = (GString *) x;
@@ -259,6 +302,11 @@ static void hosts_remove(gpointer x)
 
 /**
  * Is a host in an array?
+ *
+ * So we can remove hosts that are in the not list, from the hosts list.
+ *
+ * @param a array of host names
+ * @param h host name
  */
 static int in_list(GPtrArray *a, GString *h)
 {

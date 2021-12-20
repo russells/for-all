@@ -26,12 +26,12 @@
 #define a2c(p, i) ( (char*)(g_ptr_array_index(p,i)) )
 
 // Add pointer to array.
-#define ga(a,p) \
-	do { \
-		if (0 && opt_debug) {\
-			printf("adding to %s: %p\n", #a, p);\
-		}\
-		g_ptr_array_add(a,p);\
+#define ga(a,p)							\
+	do {							\
+		if (0 && opt_debug) {				\
+			printf("adding to %s: %p\n", #a, p);	\
+		}						\
+		g_ptr_array_add(a,p);				\
 	} while (0)
 
 static char *myversion = "0.0.3";
@@ -51,7 +51,6 @@ static void print_s_f_lists(void);
 static void list_hosts(void);
 static void list_files(void);
 
-#define N_NOT_LISTS 10
 
 static int         opt_debug = 0;	   /* -D, --debug */
 static int         opt_files = 0;	   /* -F, --files */
@@ -67,6 +66,7 @@ static GString *   opt_user = 0;	   /* -u, --user */
 static GPtrArray * opt_command = 0;	   /* Remote command */
 static GPtrArray * success_hosts;	   /* List of successes */
 static GPtrArray * failure_hosts;	   /* List of failures */
+
 
 int main(int argc, char **argv)
 {
@@ -110,7 +110,15 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-
+/**
+ * Run our command on one host.
+ *
+ * We assume that the hosts are in one list, and just supply the index into
+ * that list. Separating this out makes it easier to run the command in any
+ * order.
+ *
+ * @param i the index of the host
+ */
 static void do_host(int i)
 {
 	GString *hostname = get_host(i);
@@ -125,6 +133,9 @@ static void do_host(int i)
 }
 
 
+/**
+ * List all the hosts on stdout.
+ */
 static void list_hosts(void)
 {
 	printf("Hosts:\n");
@@ -138,6 +149,9 @@ static void list_hosts(void)
 }
 
 
+/**
+ * List all the host list files on stdout.
+ */
 static void list_files(void)
 {
 	printf("Lists:\n");
@@ -151,6 +165,10 @@ static void list_files(void)
 }
 
 
+/**
+ * Calculate the field width needed for host names. The width is the smallest
+ * multiple of eight that is long enough for every host name.
+ */
 static int host_len(void)
 {
 	static int len = 0;
@@ -168,7 +186,7 @@ static int host_len(void)
 }
 
 
-static void print_hosts(const char *label, GPtrArray *list)
+static void print_list(const char *label, GPtrArray *list)
 {
 	printf("%s:\n", label);
 	for (int i=0; i<list->len; i++) {
@@ -177,18 +195,25 @@ static void print_hosts(const char *label, GPtrArray *list)
 }
 
 
+/**
+ * Print the success and failure lists.
+ */
 static void print_s_f_lists(void)
 {
 	printf("\n----\n");
 	if (success_hosts->len) {
-		print_hosts("Success", success_hosts);
+		print_list("Success", success_hosts);
 	}
 	if (failure_hosts->len) {
-		print_hosts("Failure", failure_hosts);
+		print_list("Failure", failure_hosts);
 	}
 }
 
 
+/**
+ * Initialise static data.  When we include other modules, their init functions
+ * need to be called here.
+ */
 static void init(void)
 {
 	init_lists();
@@ -280,6 +305,12 @@ static const struct option long_options[] = {
 };
 
 
+/**
+ * Process the command line arguments.
+ *
+ * @param argc from main()
+ * @param argv from main()
+ */
 static void do_opts(int argc, char **argv)
 {
 	while (1) {
@@ -293,7 +324,9 @@ static void do_opts(int argc, char **argv)
 			break;
 		switch (c) {
 		case 1:
-			// case 1 is for non-option arguments, up to "--"
+			// case 1 is for non-option arguments, up to "--".
+			// That is specified by the leading '-' in
+			// short_options.
 			gs = g_string_new(optarg);
 			add_host(gs);
 			break;
@@ -352,12 +385,19 @@ static void do_opts(int argc, char **argv)
 			break;
 		}
 	}
+	// Now we're into the args after "--".  All those are the command and
+	// args for the remote host.
 	for (int i=optind; i<argc; i++) {
 		ga(opt_command, g_string_new(argv[i]));
 	}
 }
 
 
+/**
+ * Debug output printing.
+ *
+ * @todo Rationalise the debug output.
+ */
 static void debug_print_flags(void)
 {
 	DD(1) if (opt_single) {
@@ -429,11 +469,22 @@ static void debug_print_flags(void)
 }
 
 
+/**
+ * A host command run failed.  Record that on a list.
+ *
+ * @todo Should the failure and success lists be maintained here, or in the
+ * lists module?
+ */
 static void failure(GString *s)
 {
 	g_ptr_array_add(failure_hosts, s);
 }
 
+/**
+ * A host command run succeeded.  Record that on a list.
+ *
+ * @see failure()
+ */
 static void success(GString *s)
 {
 	g_ptr_array_add(success_hosts, s);
