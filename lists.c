@@ -94,13 +94,17 @@ GString *get_not_host_list(int i)
 
 void add_host(GString *host)
 {
-	g_ptr_array_add(hosts, host);
+	if (! in_list(hosts, host)) {
+		g_ptr_array_add(hosts, host);
+	}
 }
 
 
 void add_not_host(GString *host)
 {
-	g_ptr_array_add(nots, host);
+	if (! in_list(nots, host)) {
+		g_ptr_array_add(nots, host);
+	}
 }
 
 
@@ -188,23 +192,26 @@ static int line_host_match(char *line, char **name, int *namelen)
 
 /**
  * Read one list file.  We read each line from the file and get the host name
- * from the line, if there is one.
+ * from the line, if there is one.  If any host names are read from the file,
+ * we return TRUE.
  *
  * @param list the list to keep hosts specified in this file
- * @param listname the file name of the list to read
+ * @param filename the file name of the list to read
+ * @return the number of host names read
  * @see line_host_match(char*,char**,int*)
  */
-static void read_one_list(GPtrArray *list, GString *listname)
+static int read_one_list(GPtrArray *list, GString *filename)
 {
 	FILE *f;
 	char *data = 0;
 	size_t size = 0;
+	int names_read = 0;
 
-	f = fopen(listname->str, "r");
+	f = fopen(filename->str, "r");
 	if (0 == f) {
-		fprintf(stderr, "Cannot open %s: %s\n", listname->str,
+		fprintf(stderr, "Cannot open %s: %s\n", filename->str,
 			strerror(errno));
-		return;
+		return 0;
 	}
 
 	size = 256;
@@ -217,32 +224,58 @@ static void read_one_list(GPtrArray *list, GString *listname)
 			int err = errno;
 			if (!feof(f)) {
 				fprintf(stderr, "error reading %s: %s\n",
-					listname->str, strerror(err));
+					filename->str, strerror(err));
 			}
 			break;
 		}
 		//printf("Line: <<<%s>>>\n", data);
 		GString *gs = line_to_host(data);
 		if (gs) {
-			// gs is newly allocated, and the host list takes over
-			// ownership.
-			g_ptr_array_add(list, gs);
+			if (in_list(list, gs)) {
+				printf("Nooooo %s from %s\n", gs->str, filename->str);
+				g_string_free(gs, TRUE);
+			} else {
+				printf("adding %s from %s\n", gs->str, filename->str);
+				// gs is newly allocated, and the host list
+				// takes over ownership.
+				g_ptr_array_add(list, gs);
+			}
+			names_read ++;
 		}
 	}
 	free(data);
 	fclose(f);
+	return names_read;
 }
 
 
-void add_list(GString *listname)
+/**
+ * Read host names from a list file.  If any host names are read successfully,
+ * we save the file name on our list of host lists.
+ *
+ * @param filename name of the file to read host names from
+ */
+void add_list(GString *filename)
 {
-	read_one_list(hosts, listname);
+	if (read_one_list(hosts, filename)) {
+		// We own the list here.
+		g_ptr_array_add(host_lists, filename);
+	} else {
+		g_string_free(filename, TRUE);
+	}
 }
 
 
-void add_not_list(GString *listname)
+/**
+ * @see add_list()
+ */
+void add_not_list(GString *filename)
 {
-	read_one_list(nots, listname);
+	if (read_one_list(nots, filename)) {
+		g_ptr_array_add(not_host_lists, filename);
+	} else {
+		g_string_free(filename, TRUE);
+	}
 }
 
 
