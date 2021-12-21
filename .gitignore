@@ -2,8 +2,8 @@ for-all
 for-all.1
 for-all.pdf
 
+*.d
 *.o
-
 
 # Test lists
 list-*

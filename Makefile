@@ -5,6 +5,15 @@ PROG = for-all
 SRCS = $(PROG).c lists.c
 OBJS = $(SRCS:.c=.o)
 
+DEPDEPS = Makefile
+
+%.d: %.c $(DEPDEPS)
+	@echo DEP: $<
+	@rm -f $@ $(@:.d=.u)
+	@$(CC) -E -M $(CFLAGS) -o $@ $<
+
+DEPS = $(SRCS:.c=.d)
+
 # VersionNumber := $(shell grep ^VersionNumber $(PROG) | sed 's/.*=//')
 # VersionDate   := $(shell grep ^VersionDate   $(PROG) | sed 's/.*=//')
 
@@ -36,6 +45,10 @@ $(PROG).pdf: $(PROG).1
 	man -t ./$< | ps2pdf - - > $@ ; \
 	if [ `stat -c %s $@` -eq 0 ] ; then rm -f $@ ; false ; else true ; fi
 
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPS)
+endif
+
 .PHONY: clean
 clean:
-	rm -f $(PROG) $(OBJS) $(PROG).1 $(PROG).pdf
+	rm -f $(PROG) $(OBJS) $(PROG).1 $(PROG).pdf $(DEPS)
