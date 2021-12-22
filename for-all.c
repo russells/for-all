@@ -514,7 +514,9 @@ static void run_command(GString *ssh,
 	GPtrArray *args = g_ptr_array_new();
 
 	ga(args, g2c(ssh));
+	g_ptr_array_add(args, "-n");
 	g_ptr_array_add(args, "-q");
+	g_ptr_array_add(args, "-t");
 	for (int i=0; i<ssh_options->len; i++) {
 		g_ptr_array_add(args, "-o");
 		ga(args, a2g2c(ssh_options, i));
