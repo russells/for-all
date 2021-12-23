@@ -2,7 +2,7 @@
 
 PROG = for-all
 
-SRCS = $(PROG).c lists.c
+SRCS = $(PROG).c lists.c run-command.c
 OBJS = $(SRCS:.c=.o)
 
 DEPDEPS = Makefile

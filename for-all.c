@@ -13,26 +13,11 @@
 #include <glib.h>
 
 #include "lists.h"
+#include "run-command.h"
+#include "utils.h"
 
 #define DD(n) if(opt_debug >= n)
 
-// GString to char*.
-#define g2c(p)      ( ((GString*)p)->str )
-// GString array index to GString*.
-#define a_g(p, i)   (  (GString*)(g_ptr_array_index(p,i)) )
-// GString array index to char*.
-#define a2g2c(p, i) ( a_g(p,i)->str )
-// char* array index to char*.
-#define a2c(p, i) ( (char*)(g_ptr_array_index(p,i)) )
-
-// Add pointer to array.
-#define ga(a,p)							\
-	do {							\
-		if (0 && opt_debug) {				\
-			printf("adding to %s: %p\n", #a, p);	\
-		}						\
-		g_ptr_array_add(a,p);				\
-	} while (0)
 
 static char *myversion = "0.0.3";
 
@@ -43,10 +28,6 @@ static void init(void);
 static void do_opts(int argc, char **argv);
 static void usage(int longusage, int ret);
 static void do_host(int i);
-static void run_command(GString *ssh,
-			GPtrArray *ssh_options,
-			GString *host,
-			GPtrArray *command);
 static void print_s_f_lists(void);
 static void list_hosts(void);
 static void list_files(void);
@@ -64,8 +45,6 @@ static GString *   opt_ssh_program = 0;	   /* -S, --ssh-program */
 static int         opt_no_tty = 0;	   /* -T, --no-tty */
 static GString *   opt_user = 0;	   /* -u, --user */
 static GPtrArray * opt_command = 0;	   /* Remote command */
-static GPtrArray * success_hosts;	   /* List of successes */
-static GPtrArray * failure_hosts;	   /* List of failures */
 
 
 int main(int argc, char **argv)
@@ -117,17 +96,30 @@ int main(int argc, char **argv)
  * that list. Separating this out makes it easier to run the command in any
  * order.
  *
+ * If we're doing single line, print the hostname without a newline.
+ *
+ * @todo In the single line case, we really want to detect if there has been
+ * any output from the host, so we move to the next line if there is no
+ * output. And we want to detect the "no connection" case and notify that.
+ *
  * @param i the index of the host
  */
 static void do_host(int i)
 {
 	GString *hostname = get_host(i);
-	printf("\n-- %s\n", hostname->str);
+	if (opt_single) {
+		printf("%-*s", hosts_name_length(), hostname->str);
+		fflush(stdout);
+	} else {
+		printf("\n-- %s\n", hostname->str);
+	}
 	run_command(opt_ssh_program,
 		    opt_ssh_options,
 		    hostname,
-		    opt_command);
-	if (! opt_quiet) {
+		    opt_command,
+		    opt_single,
+		    opt_debug);
+	if (! opt_quiet && ! opt_single) {
 		print_s_f_lists();
 	}
 }
@@ -166,46 +158,22 @@ static void list_files(void)
 
 
 /**
- * Calculate the field width needed for host names. The width is the smallest
- * multiple of eight that is long enough for every host name.
- */
-static int host_len(void)
-{
-	static int len = 0;
-	if (! len) {
-		for (int i=0; i<n_hosts(); i++) {
-			GString *gs = get_host(i);
-			int tl = gs->len;
-			if (tl > len)
-				len = tl;
-		}
-		len += 8;
-		len -= (len % 8);
-	}
-	return len;
-}
-
-
-static void print_list(const char *label, GPtrArray *list)
-{
-	printf("%s:\n", label);
-	for (int i=0; i<list->len; i++) {
-		printf("\t%s\n", a2g2c(list, i));
-	}
-}
-
-
-/**
  * Print the success and failure lists.
  */
 static void print_s_f_lists(void)
 {
 	printf("\n----\n");
-	if (success_hosts->len) {
-		print_list("Success", success_hosts);
+	if (n_successes()) {
+		printf("%s:\n", "Success");
+		for (int i=0; i<n_successes(); i++) {
+			printf("\t%s\n", get_success(i)->str);
+		}
 	}
-	if (failure_hosts->len) {
-		print_list("Failure", failure_hosts);
+	if (n_failures()) {
+		printf("%s:\n", "Failure");
+		for (int i=0; i<n_failures(); i++) {
+			printf("\t%s\n", get_failure(i)->str);
+		}
 	}
 }
 
@@ -222,9 +190,6 @@ static void init(void)
 	opt_ssh_options = g_ptr_array_new();
 
 	opt_command = g_ptr_array_new();
-
-	success_hosts = g_ptr_array_new();
-	failure_hosts = g_ptr_array_new();
 }
 
 
@@ -236,7 +201,7 @@ static const char * const long_usage_message = "\
   * means not implemented\n\
     -h|--help       This help\n\
     -V|--version    Print version and exit\n\
-  * -1|--single     Output on a single line, with host name\n\
+    -1|--single     Output on a single line, with host name\n\
                     Turns on -q\n\
     -F|--files      Show which list files are read\n\
     -H file|--hostlist=file\n\
@@ -469,116 +434,3 @@ static void debug_print_flags(void)
 }
 
 
-/**
- * A host command run failed.  Record that on a list.
- *
- * @todo Should the failure and success lists be maintained here, or in the
- * lists module?
- */
-static void failure(GString *s)
-{
-	g_ptr_array_add(failure_hosts, s);
-}
-
-/**
- * A host command run succeeded.  Record that on a list.
- *
- * @see failure()
- */
-static void success(GString *s)
-{
-	g_ptr_array_add(success_hosts, s);
-}
-
-
-/**
- * Run a command on a host.
- *
- * @ssh command to run to access the host.
- *
- * @ssh_options extra args for the ssh command.
- *
- * @host where to run the following command.
- *
- * @command what to run on the host.
- */
-static void run_command(GString *ssh,
-			GPtrArray *ssh_options,
-			GString *host,
-			GPtrArray *command)
-{
-	int ret;
-	int wstatus;
-	pid_t pid, pid2;
-	/** args is an array of char*, not an array of GString*. */
-	GPtrArray *args = g_ptr_array_new();
-
-	ga(args, g2c(ssh));
-	g_ptr_array_add(args, "-n");
-	g_ptr_array_add(args, "-q");
-	g_ptr_array_add(args, "-t");
-	for (int i=0; i<ssh_options->len; i++) {
-		g_ptr_array_add(args, "-o");
-		ga(args, a2g2c(ssh_options, i));
-	}
-	ga(args, g2c(host));
-	ga(args, "--");
-	for (int i=0; i<command->len; i++) {
-		ga(args, a2g2c(command, i));
-	}
-	ga(args, NULL);
-
-	if (opt_debug) {
-		//printf("-- rc: args->len=%d\n", args->len);
-		//printf("-- rc: args...\n");
-		for (int i=0;
-		     i<(args->len)-1; /* -1 so we don't print the NULL. */
-		     i++) {
-			if (i) printf(" ");
-			printf("{%s}", a2c(args, i));
-		}
-		printf("\n");
-	}
-
-	GString *gs = g_string_new("");
-
-	pid = fork();
-	switch (pid) {
-	case -1:
-		// Error.
-		g_string_printf(gs, "%s # Cannot fork: %s", host->str,
-				strerror(errno));
-		fprintf(stderr, "%s\n", gs->str);
-		failure(gs);
-		break;
-	case 0:
-		// I am the child.
-		execvp(ssh->str, (char * const *) args->pdata);
-		fprintf(stderr, "Cannot exec %s: %s\n", ssh->str,
-			strerror(errno));
-		exit(128);
-	default:
-		// I am the parent.
-		pid2 = wait(&wstatus);
-		assert(pid == pid2);
-		ret = WEXITSTATUS(wstatus);
-		switch (ret) {
-		case 0:
-			g_string_printf(gs, "%s", host->str);
-			success(gs);
-			break;
-		case 128:
-			g_string_printf(gs, "%-*s# Cannot exec %s",
-					host_len(), host->str, ssh->str);
-			failure(gs);
-			break;
-		default:
-			g_string_printf(gs, "%-*s # (%d)",
-					host_len(), host->str, ret);
-			failure(gs);
-			break;
-		}
-	}
-
-	g_ptr_array_free(args, TRUE);
-}

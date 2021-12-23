@@ -12,6 +12,8 @@ GPtrArray *nots;
 
 GPtrArray *host_lists;
 GPtrArray *not_host_lists;
+static GPtrArray * success_hosts;	   /* List of successes */
+static GPtrArray * failure_hosts;	   /* List of failures */
 
 
 static void hosts_remove(gpointer x);
@@ -28,6 +30,8 @@ void init_lists(void)
 	nots = g_ptr_array_new();
 	host_lists = g_ptr_array_new();
 	not_host_lists = g_ptr_array_new();
+	success_hosts = g_ptr_array_new();
+	failure_hosts = g_ptr_array_new();
 }
 
 
@@ -42,6 +46,12 @@ int n_host_lists     (void) { return             host_lists->len; }
 
 /** How many not hosts lists do we have? */
 int n_not_host_lists (void) { return         not_host_lists->len; }
+
+/** How many successful hosts do we have? */
+int n_successes      (void) { return          success_hosts->len; }
+
+/** How many successful hosts do we have? */
+int n_failures       (void) { return          failure_hosts->len; }
 
 
 /**
@@ -89,6 +99,22 @@ GString *get_not_host_list(int i)
 	assert(i >= 0);
 	assert(i < not_host_lists->len);
 	return (GString*) g_ptr_array_index(not_host_lists, i);
+}
+
+
+GString *get_success(int i)
+{
+	assert(i >= 0);
+	assert(i < success_hosts->len);
+	return (GString*) g_ptr_array_index(success_hosts, i);
+}
+
+
+GString *get_failure(int i)
+{
+	assert(i >= 0);
+	assert(i < failure_hosts->len);
+	return (GString*) g_ptr_array_index(failure_hosts, i);
 }
 
 
@@ -365,3 +391,61 @@ static int in_list(GPtrArray *a, GString *h)
 	}
 	return FALSE;
 }
+
+
+int hosts_name_length(void)
+{
+	int namelen = 0;
+	for (int i=0; i<hosts->len; i++) {
+		GString *gs = (GString*) g_ptr_array_index(hosts, i);
+		if(gs->len > namelen) {
+			namelen = gs->len;
+		}
+	}
+	namelen += 8;
+	namelen -= (namelen % 8);
+	return namelen;
+}
+
+
+/**
+ * A host command run failed.  Record that on a list.
+ */
+void failure(GString *s)
+{
+	g_ptr_array_add(failure_hosts, s);
+}
+
+
+/**
+ * A host command run succeeded.  Record that on a list.
+ *
+ * @see failure()
+ */
+void success(GString *s)
+{
+	g_ptr_array_add(success_hosts, s);
+}
+
+
+/**
+ * Calculate the field width needed for host names. The width is the smallest
+ * multiple of eight that is long enough for every host name.
+ */
+int host_len(void)
+{
+	static int len = 0;
+	if (! len) {
+		for (int i=0; i<n_hosts(); i++) {
+			GString *gs = get_host(i);
+			int tl = gs->len;
+			if (tl > len)
+				len = tl;
+		}
+		len += 8;
+		len -= (len % 8);
+	}
+	return len;
+}
+
+
