@@ -193,10 +193,12 @@ static void init(void)
 }
 
 
+/** Needs 3 myname.  */
 static const char * const usage_message = "\
 Usage: %s [options] [hosts] -- command\n\
        %s [options] [hosts] -L\n\
        %s [options] [hosts] -F\n";
+/** Needs 0 myname. */
 static const char * const long_usage_message = "\
   * means not implemented\n\
     -h|--help       This help\n\
@@ -242,9 +244,9 @@ static void usage(int longusage, int ret)
 		f = stderr;
 	else
 		f = stdout;
-	fprintf(f, usage_message, myname, myname, myname, myname, myname);
+	fprintf(f, usage_message, myname, myname, myname);
 	if (longusage)
-		fprintf(f, long_usage_message, myname, myname);
+		fprintf(f, long_usage_message);
 	exit(ret);
 }
 
