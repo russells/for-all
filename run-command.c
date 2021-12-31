@@ -12,6 +12,7 @@
 #include <sys/select.h>
 #include <sys/ioctl.h>
 
+#include "options.h"
 #include "run-command.h"
 #include "lists.h"
 #include "utils.h"
@@ -61,14 +62,18 @@ void run_command(GString *ssh,
 	}
 	ga(args, NULL);
 
-	if (opt_debug) {
+	if (! opt_quiet && ! opt_single) {
 		//printf("-- rc: args->len=%d\n", args->len);
 		//printf("-- rc: args...\n");
 		for (int i=0;
 		     i<(args->len)-1; /* -1 so we don't print the NULL. */
 		     i++) {
 			if (i) printf(" ");
-			printf("{%s}", a2c(args, i));
+			if (opt_debug)
+				printf("{");
+			printf("%s", a2c(args, i));
+			if (opt_debug)
+				printf("}");
 		}
 		printf("\n");
 	}
@@ -168,7 +173,7 @@ void run_parent(int fd, GString *prog, GString *host, pid_t pid)
 		}
 		lastchar = buf[readval-1];
 	}
-	if ('\n' != lastchar) {
+	if (! opt_quiet && '\n' != lastchar) {
 		write(1, "\n", 1);
 	}
 

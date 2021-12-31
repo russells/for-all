@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <glib.h>
 
+#include "options.h"
 #include "lists.h"
 #include "run-command.h"
 #include "utils.h"
@@ -33,10 +34,10 @@ static void list_hosts(void);
 static void list_files(void);
 
 
-static int         opt_debug = 0;	   /* -D, --debug */
+int                opt_debug = 0;	   /* -D, --debug */
+int                opt_quiet = 0;	   /* -q, --quiet */
 static int         opt_files = 0;	   /* -F, --files */
 static int         opt_list_only = 0;	   /* -L, --list-only */
-static int         opt_quiet = 0;	   /* -q, --quiet */
 static int         opt_single = 0;	   /* -1, --single */
 static int         opt_reverse = 0;	   /* -r, --reverse */
 static int         opt_sort = 0;	   /* -s, --sort */
@@ -107,11 +108,13 @@ int main(int argc, char **argv)
 static void do_host(int i)
 {
 	GString *hostname = get_host(i);
-	if (opt_single) {
-		printf("%-*s", hosts_name_length(), hostname->str);
-		fflush(stdout);
-	} else {
-		printf("\n-- %s\n", hostname->str);
+	if (! opt_quiet) {
+		if (opt_single) {
+			printf("%-*s", hosts_name_length(), hostname->str);
+			fflush(stdout);
+		} else {
+			printf("\n-- %s\n", hostname->str);
+		}
 	}
 	run_command(opt_ssh_program,
 		    opt_ssh_options,
@@ -214,7 +217,7 @@ static const char * const long_usage_message = "\
     -N file|--notlist=file\n\
                     Exclude hosts in this list\n\
     -o sshoption    Add \"-o sshoption\" to the ssh command line\n\
-  * -q              Quiet (do not print commands and machine names)\n\
+    -q              Quiet (do not print commands and machine names)\n\
     -S prog|--ssh-program=prog\n\
                     Use prog as ssh command (experimental)\n\
     -s|--sort       Sort the host list\n\
@@ -425,10 +428,10 @@ static void debug_print_flags(void)
 	}
 	DD(1) if (opt_command->len) {
 		for (int i=0; i<opt_command->len; i++) {
-			if (i<0) {
+			if (i) {
 				printf(" ");
 			}
-			printf("{%s}",
+			printf("\"%s\"",
 			       ((GString *)g_ptr_array_index(opt_command, i))->str);
 		}
 		printf("\n");
