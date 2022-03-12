@@ -5,6 +5,11 @@
 #include <unistd.h>
 #include <assert.h>
 #include <sys/types.h>
+#ifdef HAVE_WAIT_H
+#include <wait.h>
+#elif HAVE_SYS_WAIT_H
+#include <sys/wait.h>
+#endif
 #include <sys/wait.h>
 #include <stdlib.h>		/* posix_openpt() */
 #include <fcntl.h>
