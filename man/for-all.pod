@@ -111,14 +111,14 @@ F</usr/local/etc/for-all>. Host list defaults to F<./all>, then
 F<~/etc/for-all/all>, then F</usr/local/etc/for-all/all>.  It is an error if
 no other list is specified and none of those exist.
 
-If a list C<L> is specified as an argument to C<-W> or C<-N>, it is
+If a list C<L> is specified as an argument to C<-H> or C<-N>, it is
 searched for as F<./L>, then F<~/etc/for-all/L>, then
 F</usr/local/etc/for-all/L>. It is an error if none of these exist.
 
 C<-- command> must be supplied.
 
 Hosts can be specified as:
-   inside a host list file specified with C<-W>
+   inside a host list file specified with C<-H>
    non-option arguments before the C<--> separator
 
 Uses ssh, so if you have passwordless ssh logins for the right user, no
@@ -148,7 +148,7 @@ Install the foo package on two workstations:
 Reboot all workstations in the office.  C<office> is a file containing a
 list of workstations:
 
-    for-all -u root -W office -- shutdown -r now
+    for-all -u root -H office -- shutdown -r now
 
 Remove apackage from all except the important workstations.  F<all> and
 F<important> are files containing lists of workstations.
@@ -158,7 +158,7 @@ F<important> are files containing lists of workstations.
 Look for all foo-client* packages on the remote-office workstations: The \|
 makes the pipe and grep run on the remote office workstation, not locally:
 
-    for-all -u root -W remote-office -- rpm -qa \| grep foo-client
+    for-all -u root -H remote-office -- rpm -qa \| grep foo-client
 
 List the mozilla files and directories in /tmp: The \* makes the wildcard
 expand on the remote workstation, not locally:
