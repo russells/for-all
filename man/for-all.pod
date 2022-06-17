@@ -133,7 +133,7 @@ ignored. Only the first word on each line is used. Line starting with C<#>
 are ignored.
 
 A line starting with C<+> specifies another file to read recursively. No
-check is done for file loops.
+check is done for file loops. (RECURSIVE LISTS ARE CURRENTLY NOT IMPLEMENTED.)
 
 =head1 EXAMPLES
 
