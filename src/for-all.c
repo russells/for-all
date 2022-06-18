@@ -73,6 +73,13 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
+	if (0 == opt_command->len) {
+		usage(0, 1);
+	}
+	if (0 == n_hosts()) {
+		fprintf(stderr, "No hosts specified\n");
+		exit(3);
+	}
 	if (opt_reverse) {
 		for (int i=n_hosts()-1; i>=0; i--) {
 			do_host(i);
@@ -83,9 +90,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (0 == opt_command->len) {
-		usage(0, 1);
-	}
 	return 0;
 }
 
