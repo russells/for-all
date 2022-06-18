@@ -2,6 +2,9 @@ for-all
 for-all.1
 for-all.pdf
 
+# Generated README file.
+README
+
 *.d
 *.o
 
