@@ -3,6 +3,6 @@
 SUBDIRS = src man
 dist_doc_DATA = README
 
-README: README.md
-	pandoc -t plain -o README README.md
+README: README.md Makefile.am
+	pandoc -t gfm -o README README.md
 
