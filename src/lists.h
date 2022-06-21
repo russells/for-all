@@ -7,8 +7,6 @@
 
 // lists.c
 void init_lists(void);
-void read_list(GString *listname);
-void read_nots(GString *listname);
 void add_host(GString *host);
 void add_not_host(GString *host);
 void add_list(GString *list);

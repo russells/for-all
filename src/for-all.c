@@ -54,6 +54,9 @@ int main(int argc, char **argv)
 
 	myname = argv[0];
 	do_opts(argc, argv);
+	if (0 == n_host_lists()) {
+		add_list(g_string_new("all"));
+	}
 	process_lists();
 
 	if (opt_debug)

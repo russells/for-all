@@ -20,6 +20,7 @@ static void hosts_remove(gpointer x);
 static GString *line_to_host(char *line);
 static int line_host_match(char *line, char **name, int *namelen);
 static int in_list(GPtrArray *a, GString *h);
+static FILE * open_file_list(GString *filename);
 
 
 
@@ -248,7 +249,7 @@ static int read_one_list(GPtrArray *list, GString *filename)
 	size_t size = 0;
 	int names_read = 0;
 
-	f = fopen(filename->str, "r");
+	f = open_file_list(filename);
 	if (0 == f) {
 		fprintf(stderr, "Cannot open %s: %s\n", filename->str,
 			strerror(errno));
@@ -287,6 +288,53 @@ static int read_one_list(GPtrArray *list, GString *filename)
 	free(data);
 	fclose(f);
 	return names_read;
+}
+
+
+static FILE * open_file_list(GString *filename)
+{
+	GString * pathname = g_string_new(filename->str);
+	FILE *f;
+	char *home;
+
+	/* Try the plain file name first. */
+	f = fopen(pathname->str, "r");
+	if (0 !=f ) {
+		g_string_free(pathname, TRUE);
+		return f;
+	}
+
+	/* If the file name has a '/' in it, don't do any more searching. */
+	if (strchr(filename->str, '/')) {
+		g_string_free(pathname, TRUE);
+		return 0;
+	}
+
+	/* Try prepending $HOME/etc/for-all */
+	home = getenv("HOME");
+	if (home) {
+		g_string_prepend(pathname, "/etc/for-all/");
+		g_string_prepend(pathname, home);
+		f = fopen(pathname->str, "r");
+		if (f) {
+			g_string_free(pathname, TRUE);
+			return f;
+		}
+	}
+
+	/* Now just /etc/for-all/<filename> */
+	g_string_erase(pathname, 0, -1);
+	g_string_append(pathname, "/etc/for-all/");
+	g_string_append(pathname, filename->str);
+	f = fopen(pathname->str, "r");
+	if (f) {
+		g_string_free(pathname, TRUE);
+		return f;
+	}
+
+	/* No file found. */
+	g_string_free(pathname, TRUE);
+	return 0;
 }
 
 
