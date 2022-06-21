@@ -18,12 +18,12 @@
 #define a2c(p, i) ( (char*)(g_ptr_array_index(p,i)) )
 
 // Add pointer to array.
-#define ga(a,p)							\
-	do {							\
-		if (0 && opt_debug) {				\
-			printf("adding to %s: %p\n", #a, p);	\
-		}						\
-		g_ptr_array_add(a,p);				\
+#define ga(a,p)								\
+	do {								\
+		if (0 && opt_debug) {					\
+			printf("adding to %s: %p\n", #a, (void*)p);	\
+		}							\
+		g_ptr_array_add(a,p);					\
 	} while (0)
 
 
