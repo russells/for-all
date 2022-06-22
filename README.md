@@ -7,17 +7,17 @@ on-all-workstations.
 
 ## Examples
 
-- Run the hostname command on every workstation in your 'all' list:
+- Run the hostname command on every workstation in your ```all``` list:
   ```
   for-all -- hostname
   ```
 
 - Install the foo package on two workstations:
   ```
-  for-all -u root ws1 ws2 -- yum install -y foo
+  for-all -u root ws1 ws2 -- aptitude install foo
   ```
 
-- Reboot all workstations in the office.  "office" is a file containing a
+- Reboot all workstations in the office.  ```office``` is a file containing a
   list of workstations:
   ```
   for-all -u root -H office -- shutdown -r now
@@ -27,8 +27,8 @@ on-all-workstations.
   for-all -H office -- sudo shutdown -r now
   ```
 
-- Remove apackage from all except the important workstations.  all and
-  important are files containing lists of workstations.
+- Remove apackage from all except the important workstations. ```all``` and
+  ```important``` are files containing lists of workstations.
   ```
   for-all -u root -N important -- yum erase -y apackage
   ```
@@ -44,6 +44,16 @@ on-all-workstations.
   expand on the remote workstation, not locally:
   ```
   for-all -u root -- ls -ld /tmp/mozilla\*
+  ```
+
+- Run a shell command on all hosts. Note the excessive escaping of shell special
+  characters:
+  ```
+  for-all -- for n in \$\( seq 10 \) \; do echo \$n \; done
+  ```
+  This is equivalent:
+  ```
+  for-all -- 'for n in $( seq 10 ) ; do echo $n ; done'
   ```
 
 ## Hosts and lists
@@ -69,9 +79,9 @@ on-all-workstations.
   list called ```all```.
 
 - Host lists live in either the current directory, or in
-  ```~/etc/for-all```. The default host list is ```~/etc/for-all/all```.
+  ```$HOME/etc/for-all```, or in ```/etc/for-all```.
 
-- Host lists can contain blank lines and comments. eg
+- Host lists can contain blank lines and comments starting with ```#```. eg
   ```
   # Perth workstations.
   ws1
