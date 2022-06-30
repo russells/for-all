@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <glib.h>
 
+#include "for-all.h"
 #include "options.h"
 #include "lists.h"
 #include "run-command.h"
@@ -21,7 +22,7 @@
 
 static char *myversion = "0.0.3";
 
-static char *myname;
+const char *myname;
 
 static void debug_print_flags(void);
 static void init(void);
@@ -157,11 +158,17 @@ static void list_files(void)
 {
 	printf("Lists:\n");
 	for (int i=0; i<n_host_lists(); i++) {
-		printf("        %s\n", g2c(get_host_list(i)));
+		HostListName *hln = get_host_list(i);
+		GString *pathname = hln->pathname;
+		char *name = pathname->str;
+		printf("        %s\n", name);
 	}
 	printf("Not lists:\n");
 	for (int i=0; i<n_not_host_lists(); i++) {
-		printf("        %s\n", g2c(get_not_host_list(i)));
+		HostListName *hln = get_host_list(i);
+		GString *pathname = hln->pathname;
+		char *name = pathname->str;
+		printf("        %s\n", name);
 	}
 }
 

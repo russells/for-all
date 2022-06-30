@@ -132,8 +132,8 @@ Hosts are listed in simple files, one per line.  Blank lines are
 ignored. Only the first word on each line is used. Line starting with C<#>
 are ignored.
 
-A line starting with C<+> specifies another file to read recursively. No
-check is done for file loops. (RECURSIVE LISTS ARE CURRENTLY NOT IMPLEMENTED.)
+A line starting with C<+> specifies another file to read recursively. A
+check is done for file loops, and nesting cannot be more than five deep.
 
 =head1 EXAMPLES
 

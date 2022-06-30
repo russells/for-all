@@ -5,8 +5,19 @@
 #include <glib.h>
 
 
+struct _hostListName {
+	GString *filename;
+	GString *pathname;
+};
+typedef struct _hostListName HostListName;
+
+
 // lists.c
 void init_lists(void);
+
+HostListName *new_hostlistname(GString *filename);
+void free_hostlistname(HostListName *hln);
+
 void add_host(GString *host);
 void add_not_host(GString *host);
 void add_list(GString *list);
@@ -24,8 +35,8 @@ int n_successes(void);
 int n_failures(void);
 GString *get_host(int i);
 GString *get_not_host(int i);
-GString *get_host_list(int i);
-GString *get_not_host_list(int i);
+HostListName *get_host_list(int i);
+HostListName *get_not_host_list(int i);
 void sort_hosts(void);
 void process_lists(void);
 int hosts_name_length(void);

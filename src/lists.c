@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <regex.h>
 
+#include "for-all.h"
+
 
 GPtrArray *hosts;
 GPtrArray *nots;
@@ -18,9 +20,11 @@ static GPtrArray * failure_hosts;	   /* List of failures */
 
 static void hosts_remove(gpointer x);
 static GString *line_to_host(char *line);
+static GString *line_to_file(char *line);
 static int line_host_match(char *line, char **name, int *namelen);
+static int line_file_match(char *line, char **name, int *namelen);
 static int in_list(GPtrArray *a, GString *h);
-static FILE * open_file_list(GString *filename);
+static FILE * open_file_list(HostListName *hln);
 
 
 
@@ -87,19 +91,19 @@ GString *get_not_host(int i)
 }
 
 
-GString *get_host_list(int i)
+HostListName *get_host_list(int i)
 {
 	assert(i >= 0);
 	assert(i < host_lists->len);
-	return (GString*) g_ptr_array_index(host_lists, i);
+	return (HostListName*) g_ptr_array_index(host_lists, i);
 }
 
 
-GString *get_not_host_list(int i)
+HostListName *get_not_host_list(int i)
 {
 	assert(i >= 0);
 	assert(i < not_host_lists->len);
-	return (GString*) g_ptr_array_index(not_host_lists, i);
+	return (HostListName*) g_ptr_array_index(not_host_lists, i);
 }
 
 
@@ -177,6 +181,21 @@ static GString *line_to_host(char *line)
 }
 
 
+static GString *line_to_file(char *line)
+{
+	GString *gs = 0;
+	int matched;
+	char *name;
+	int namelen;
+
+	matched = line_file_match(line, &name, &namelen);
+	if (matched) {
+		gs = g_string_new_len(name, namelen);
+	}
+	return gs;
+}
+
+
 /**
  * Match a line with a regex, looking for a host name.
  *
@@ -210,7 +229,8 @@ static int line_host_match(char *line, char **name, int *namelen)
 		if (regret) {
 			char errbuf[256];
 			regerror(regret, &reg, errbuf, 256);
-			fprintf(stderr, "Cannot compile \"%s\": %s\n",
+			fprintf(stderr, "%s: Cannot compile \"%s\": %s\n",
+				myname,
 				lineregex, errbuf);
 			exit(3);
 		}
@@ -233,6 +253,64 @@ static int line_host_match(char *line, char **name, int *namelen)
 
 
 /**
+ * Match a line with a regex, looking for a + and a file name.
+ *
+ * A line has
+ * - optional white space
+ * - a +
+ * - file name
+ * - optional white space
+ * - optional # with any other characters following
+ * - end of line.
+ *
+ * @param line the text of the line to match
+ * @param name pointer to a pointer in which to save the start of the name
+ * @param namelen pointer to where to save the length of the name
+ *
+ * @return true if a match was found, 0 otherwise.
+ */
+static int line_file_match(char *line, char **name, int *namelen)
+{
+	static int compiled = 0;
+	static regex_t reg;
+	int regret;
+	regmatch_t matches[3];
+	regoff_t off, len;
+
+	static char lineregex[]
+		= "^\\s*\\+\\s*([[:alnum:]/\\._-]*)\\s*(#.*)?";
+
+	if (! compiled) {
+		regret = regcomp(&reg, lineregex,
+				 REG_EXTENDED | REG_NEWLINE);
+		if (regret) {
+			char errbuf[256];
+			regerror(regret, &reg, errbuf, 256);
+			fprintf(stderr, "%s: Cannot compile \"%s\": %s\n",
+				myname,
+				lineregex, errbuf);
+			exit(3);
+		}
+		compiled = TRUE;
+	}
+	regret = regexec(&reg, line, 3, matches, 0);
+	if (regret) {
+		return 0;
+	}
+
+	if (matches[1].rm_so == -1) {
+		return 0;
+	}
+
+	off = matches[1].rm_so;
+	len = matches[1].rm_eo - matches[1].rm_so;
+	*name = line + off;
+	*namelen = len;
+	return TRUE;
+}
+
+
+/**
  * Read one list file.  We read each line from the file and get the host name
  * from the line, if there is one.  If any host names are read from the file,
  * we return TRUE.
@@ -242,19 +320,30 @@ static int line_host_match(char *line, char **name, int *namelen)
  * @return the number of host names read
  * @see line_host_match(char*,char**,int*)
  */
-static int read_one_list(GPtrArray *list, GString *filename)
+static int read_one_list(GPtrArray *list, HostListName *hln)
 {
 	FILE *f;
 	char *data = 0;
 	size_t size = 0;
 	int names_read = 0;
 
-	f = open_file_list(filename);
+	/* Only allow file lists to nest so far. */
+	static int nfiles = 0;
+
+	nfiles ++;
+	if (nfiles >= 5) {
+		fprintf(stderr, "%s: File lists nest too deep: \"%s\"\n",
+			myname, hln->filename->str);
+		exit(5);
+	}
+
+	f = open_file_list(hln);
 	if (0 == f) {
-		fprintf(stderr, "Cannot open %s: %s\n", filename->str,
+		fprintf(stderr, "Cannot open \"%s\": %s\n", hln->filename->str,
 			strerror(errno));
 		return 0;
 	}
+
 
 	size = 256;
 	data = malloc(size);
@@ -266,24 +355,33 @@ static int read_one_list(GPtrArray *list, GString *filename)
 			int err = errno;
 			if (!feof(f)) {
 				fprintf(stderr, "error reading %s: %s\n",
-					filename->str, strerror(err));
+					hln->filename->str, strerror(err));
 			}
 			break;
 		}
 		//printf("Line: <<<%s>>>\n", data);
-		GString *gs = line_to_host(data);
-		if (gs) {
-			if (in_list(list, gs)) {
-				//printf("Nooooo %s from %s\n", gs->str, filename->str);
-				g_string_free(gs, TRUE);
-			} else {
-				//printf("adding %s from %s\n", gs->str, filename->str);
-				// gs is newly allocated, and the host list
-				// takes over ownership.
-				g_ptr_array_add(list, gs);
+		do {
+			GString *gs;
+
+			gs = line_to_host(data);
+			if (gs) {
+				if (in_list(list, gs)) {
+					//printf("Nooooo %s from %s\n", gs->str, filename->str);
+					g_string_free(gs, TRUE);
+				} else {
+					//printf("adding %s from %s\n", gs->str, filename->str);
+					// gs is newly allocated, and the host list
+					// takes over ownership.
+					g_ptr_array_add(list, gs);
+				}
+				names_read ++;
+				break;
 			}
-			names_read ++;
-		}
+			gs = line_to_file(data);
+			if (gs) {
+				add_list(gs);
+			}
+		} while (0);
 	}
 	free(data);
 	fclose(f);
@@ -291,49 +389,43 @@ static int read_one_list(GPtrArray *list, GString *filename)
 }
 
 
-static FILE * open_file_list(GString *filename)
+static FILE * open_file_list(HostListName *hln)
 {
-	GString * pathname = g_string_new(filename->str);
 	FILE *f;
 	char *home;
 
 	/* Try the plain file name first. */
-	f = fopen(pathname->str, "r");
+	f = fopen(hln->filename->str, "r");
 	if (0 !=f ) {
-		g_string_free(pathname, TRUE);
+		g_string_printf(hln->pathname, "%s", hln->filename->str);
 		return f;
 	}
 
 	/* If the file name has a '/' in it, don't do any more searching. */
-	if (strchr(filename->str, '/')) {
-		g_string_free(pathname, TRUE);
+	if (strchr(hln->filename->str, '/')) {
 		return 0;
 	}
 
 	/* Try prepending $HOME/etc/for-all */
 	home = getenv("HOME");
 	if (home) {
-		g_string_prepend(pathname, "/etc/for-all/");
-		g_string_prepend(pathname, home);
-		f = fopen(pathname->str, "r");
+		g_string_printf(hln->pathname, "%s/etc/for-all/%s",
+				home, hln->filename->str);
+		f = fopen(hln->pathname->str, "r");
 		if (f) {
-			g_string_free(pathname, TRUE);
 			return f;
 		}
 	}
 
 	/* Now just /etc/for-all/<filename> */
-	g_string_erase(pathname, 0, -1);
-	g_string_append(pathname, "/etc/for-all/");
-	g_string_append(pathname, filename->str);
-	f = fopen(pathname->str, "r");
+	g_string_printf(hln->pathname, "/etc/for-all/%s", hln->filename->str);
+	f = fopen(hln->pathname->str, "r");
 	if (f) {
-		g_string_free(pathname, TRUE);
 		return f;
 	}
 
 	/* No file found. */
-	g_string_free(pathname, TRUE);
+	g_string_erase(hln->pathname, 0, -1);
 	return 0;
 }
 
@@ -346,11 +438,13 @@ static FILE * open_file_list(GString *filename)
  */
 void add_list(GString *filename)
 {
-	if (read_one_list(hosts, filename)) {
+	HostListName *hln = new_hostlistname(filename);
+
+	if (read_one_list(hosts, hln)) {
 		// We own the list here.
-		g_ptr_array_add(host_lists, filename);
+		g_ptr_array_add(host_lists, hln);
 	} else {
-		g_string_free(filename, TRUE);
+		free_hostlistname(hln);
 	}
 }
 
@@ -360,10 +454,12 @@ void add_list(GString *filename)
  */
 void add_not_list(GString *filename)
 {
-	if (read_one_list(nots, filename)) {
-		g_ptr_array_add(not_host_lists, filename);
+	HostListName *hln = new_hostlistname(filename);
+
+	if (read_one_list(nots, hln)) {
+		g_ptr_array_add(not_host_lists, hln);
 	} else {
-		g_string_free(filename, TRUE);
+		free_hostlistname(hln);
 	}
 }
 
@@ -497,3 +593,20 @@ int host_len(void)
 }
 
 
+HostListName *new_hostlistname(GString *filename)
+{
+	HostListName *hln = malloc(sizeof(HostListName));
+	if (! hln) {
+		exit(9);
+	}
+	hln->filename = filename;
+	hln->pathname = g_string_new("");
+	return hln;
+}
+
+
+void free_hostlistname(HostListName *hln)
+{
+	g_string_free(hln->pathname, TRUE);
+	g_string_free(hln->filename, TRUE);
+}
