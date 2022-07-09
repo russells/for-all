@@ -146,6 +146,7 @@ static void run_child(char *slavename, char *prog, char **argp)
 	// We shouldn't get here under normal circumstances.
 	err = errno;
 	fprintf(stderr, "Cannot exec %s: %s\n", prog, strerror(err));
+	// This exit code appears in the parent's WEXITSTATUS.
 	exit(128);
 }
 
@@ -178,6 +179,10 @@ void run_parent(int fd, GString *prog, GString *host, pid_t pid)
 		}
 		lastchar = buf[readval-1];
 	}
+	/* Detect if the last line of output (if there was any output) was
+	   terminated by a newline. If there was no output, or the last
+	   character was not a newline, add a newline. Don't do this if -q was
+	   specified. */
 	if (! opt_quiet && '\n' != lastchar) {
 		write(1, "\n", 1);
 	}

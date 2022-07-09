@@ -106,10 +106,6 @@ int main(int argc, char **argv)
  *
  * If we're doing single line, print the hostname without a newline.
  *
- * @todo In the single line case, we really want to detect if there has been
- * any output from the host, so we move to the next line if there is no
- * output. And we want to detect the "no connection" case and notify that.
- *
  * @param i the index of the host
  */
 static void do_host(int i)
