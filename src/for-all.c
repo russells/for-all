@@ -207,9 +207,9 @@ static void init(void)
 
 /** Needs 3 myname.  */
 static const char * const usage_message = "\
-Usage: %s [options] [hosts] -- command\n\
-       %s [options] [hosts] -L\n\
-       %s [options] [hosts] -F\n";
+Usage: %s [options] [-H list] [hosts] -- command\n\
+       %s [options] [-H list] [hosts] -L\n\
+       %s [options] [-H list] [hosts] -F\n";
 /** Needs 0 myname. */
 static const char * const long_usage_message = "\
   * means not implemented\n\
