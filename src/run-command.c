@@ -184,7 +184,10 @@ void run_parent(int fd, GString *prog, GString *host, pid_t pid)
 	   character was not a newline, add a newline. Don't do this if -q was
 	   specified. */
 	if (! opt_quiet && '\n' != lastchar) {
-		write(1, "\n", 1);
+		writeval = write(1, "\n", 1);
+		if (-1 == writeval) {
+			exit(5);
+		}
 	}
 
 	gs = g_string_new("");
