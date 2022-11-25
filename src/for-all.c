@@ -19,8 +19,8 @@
 
 #define DD(n) if(opt_debug >= n)
 
+#include "version.h"
 
-static char *myversion = "0.0.3";
 
 const char *myname;
 
@@ -359,7 +359,7 @@ static void do_opts(int argc, char **argv)
 			opt_user = g_string_new(optarg);
 			break;
 		case 'V':
-			printf("%s\n", myversion);
+			printf("%s\n", version);
 			exit(0);
 			break;
 		}
