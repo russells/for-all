@@ -86,12 +86,12 @@ Sort the host names alphabetically before running the command on each.
 
 =item -T
 
-Don't allocate a tty in the ssh command.  Normally we add the C<-t> option
-to ssh.  With the C<-T> option here, we do not.
+(Not implemented.) Don't allocate a tty in the ssh command.  Normally we
+add the C<-t> option to ssh.  With the C<-T> option here, we do not.
 
 =item -u name | --user name
 
-Run on each host as C<name>.
+(Not implemented.) Run on each host as C<name>.
 
 =item --
 
