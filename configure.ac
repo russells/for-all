@@ -5,6 +5,7 @@ AC_INIT([for-all], [1.0], [russells@adelie.cx])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 

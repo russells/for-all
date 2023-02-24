@@ -13,6 +13,9 @@ list-*
 list.*
 *.list
 
+# Autoconf/automake backup files
+*~
+
 Makefile
 Makefile.in
 aclocal.m4
