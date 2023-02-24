@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <sys/select.h>
 #include <sys/ioctl.h>
+#include <string.h>
 
 #include "options.h"
 #include "run-command.h"

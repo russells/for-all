@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "lists.h"
 #include <stdio.h>
 #include <stdlib.h>
